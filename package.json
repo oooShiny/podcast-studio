@@ -1,0 +1,13 @@
+{
+  "name": "podcast-studio",
+  "version": "1.0.0",
+  "description": "Minimal browser-based podcast recording studio",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "ws": "^8.16.0"
+  }
+}

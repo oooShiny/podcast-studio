@@ -1,0 +1,2703 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Podcast Studio Prep</title>
+  <link rel="icon" type="image/png" href="/favicon/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+  <link rel="shortcut icon" href="/favicon/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="Podcast Studio" />
+  <link rel="manifest" href="/favicon/site.webmanifest" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mdbassit/Wysi@latest/dist/wysi.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/mdbassit/Wysi@latest/dist/wysi.min.js"></script>
+  <style>
+    :root {
+      --bg:        #061528;
+      --bg-2:      #0a2243;
+      --bg-3:      #0e2c54;
+      --panel:     #0a2243;
+      --panel-2:   #08203e;
+      --line:      #1c4374;
+      --line-soft: #143560;
+      --ink:       #e6edf6;
+      --ink-2:     #bfd0e6;
+      --ink-3:     #8aa3c4;
+      --ink-4:     #5e7a9e;
+      --red:       #ef4a52;
+      --red-2:     #d83b43;
+      --red-soft:  rgba(239,74,82,.18);
+      --green:     #16b67d;
+      --green-2:   #0f9866;
+      --amber:     #f4b740;
+      --purple:    #8b5cf6;
+      /* legacy compat aliases */
+      --surface:   var(--panel);
+      --surface-2: var(--bg-2);
+      --surface-3: var(--bg-3);
+      --border:    var(--line);
+      --text:      var(--ink);
+      --text-dim:  var(--ink-3);
+      --accent:    var(--red);
+      --accent-dark: var(--red-2);
+      --accent-glow: var(--red-soft);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    video { width: 100%; max-width: 100%; }
+
+    kbd {
+      background: var(--bg-3);
+      border: 1px solid var(--line);
+      font-family: 'JetBrains Mono', monospace;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 1.4rem;
+      padding: .05rem .3rem;
+      border-radius: 4px;
+      box-shadow: 0 2px 0 rgba(0,0,0,.4);
+      color: var(--ink-4);
+      font-size: .75rem;
+    }
+
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Outer wrapper ── */
+    .outer-wrapper {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 0 20px 40px;
+    }
+
+    /* ── Three-column workspace ── */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1.25fr) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* ── Shared panel style ── */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    /* ─────────────────────────────────────────
+       SOURCE RAIL
+    ───────────────────────────────────────── */
+    .source-rail {
+      display: flex;
+      flex-direction: column;
+      min-height: 720px;
+    }
+
+    .rail-group { display: flex; flex-direction: column; gap: 6px; }
+
+    .rail-group-header {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 0 4px;
+    }
+
+    .rail-group-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .18em;
+      color: var(--ink-4);
+    }
+
+    .rail-group-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--ink-4);
+      opacity: .6;
+    }
+
+    .rail-group-sub {
+      font-size: 10.5px;
+      color: var(--ink-4);
+      padding: 0 4px;
+      margin-top: -2px;
+      line-height: 1.3;
+    }
+
+    .source-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px;
+      background: var(--panel-2);
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: left;
+      color: var(--ink);
+      font: inherit;
+      width: 100%;
+      transition: border-color .12s, background .12s;
+    }
+    .source-item:hover { background: var(--bg-3); border-color: var(--line); }
+    .source-item.active { background: rgba(239,74,82,.10); border-color: var(--red); }
+
+    .source-icon {
+      width: 24px; height: 24px; border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .source-icon-lg {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; flex-shrink: 0;
+    }
+    .si-red    { background: rgba(239,74,82,.15);  color: var(--red);    }
+    .si-amber  { background: rgba(244,183,64,.15); color: var(--amber);  }
+    .si-purple { background: rgba(139,92,246,.18); color: var(--purple); }
+    .si-green  { background: rgba(22,182,125,.15); color: var(--green);  }
+
+    .source-item-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+
+    .source-item-label {
+      font-size: 12.5px; font-weight: 600; color: var(--ink);
+      line-height: 1.25;
+      overflow: hidden; text-overflow: ellipsis;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+
+    .source-item-kind {
+      font-size: 10.5px; color: var(--ink-4);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .source-item-kind .kind-lbl { font-family: 'JetBrains Mono', monospace; letter-spacing: .08em; }
+
+    .source-item-captures {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px; color: var(--green); letter-spacing: .1em; margin-top: 2px;
+    }
+    .source-item-auto {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; color: var(--ink-3); letter-spacing: .12em;
+      margin-top: 2px;
+      background: rgba(255,255,255,.04);
+      border: 1px dashed var(--line);
+      padding: 1px 5px; border-radius: 3px; align-self: flex-start;
+    }
+
+    .add-source-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 12px;
+      background: transparent; border: 1px solid var(--line); border-radius: 8px;
+      color: var(--ink-3); font: 600 12px/1 'Inter', sans-serif; cursor: pointer;
+      transition: border-color .12s, color .12s;
+    }
+    .add-source-btn:hover { border-color: var(--ink-3); color: var(--ink); }
+
+    .add-source-hint {
+      font-size: 11px; color: var(--ink-4); text-align: center; line-height: 1.45; margin: 0;
+    }
+
+    /* ─────────────────────────────────────────
+       SOURCE MODAL
+    ───────────────────────────────────────── */
+    #source-modal {
+      position: fixed; inset: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(4,12,26,.75); backdrop-filter: blur(4px);
+    }
+    #source-modal.hidden { display: none; }
+    .source-modal-box {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 16px; width: 460px; max-width: 95vw;
+      box-shadow: 0 24px 64px rgba(0,0,0,.55);
+      overflow: hidden;
+    }
+    .sm-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 0;
+    }
+    .sm-title { font: 700 15px/1 'Inter', sans-serif; color: var(--ink); }
+    .sm-close {
+      background: none; border: none; color: var(--ink-3); font-size: 18px;
+      cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 4px;
+    }
+    .sm-close:hover { color: var(--ink); background: var(--bg-3); }
+    .sm-tabs {
+      display: flex; gap: 0; padding: 14px 20px 0; border-bottom: 1px solid var(--line);
+    }
+    .sm-tab {
+      padding: 8px 16px; font: 600 12.5px/1 'Inter', sans-serif;
+      background: none; border: none; border-bottom: 2px solid transparent;
+      color: var(--ink-3); cursor: pointer; margin-bottom: -1px;
+    }
+    .sm-tab.active { color: var(--ink); border-bottom-color: var(--red); }
+    .sm-body { padding: 20px; }
+    .sm-panel { display: none; }
+    .sm-panel.active { display: block; }
+
+    .drop-zone {
+      border: 2px dashed var(--line); border-radius: 10px;
+      padding: 32px 20px; text-align: center;
+      color: var(--ink-3); font-size: 13px; cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--red); background: var(--red-soft); color: var(--ink);
+    }
+    .drop-zone .dz-icon { font-size: 28px; margin-bottom: 8px; }
+    .drop-zone .dz-hint { font-size: 11px; color: var(--ink-4); margin-top: 6px; }
+    .sm-url-row { display: flex; gap: 8px; }
+    .sm-url-input {
+      flex: 1; padding: 9px 12px;
+      background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px;
+      color: var(--ink); font: 13px/1 'Inter', sans-serif; outline: none;
+    }
+    .sm-url-input:focus { border-color: var(--red); }
+    .sm-msg { margin-top: 12px; font-size: 12px; min-height: 18px; }
+    .sm-msg.ok  { color: var(--green); }
+    .sm-msg.err { color: var(--red); }
+
+    /* Reading view inside focal pane */
+    #focal-reading {
+      display: none; flex-direction: column; gap: 12px; flex: 1;
+    }
+    #focal-reading.active { display: flex; }
+    /* Image viewer (zoom + select-to-quote) */
+    .iv-toolbar {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+    .iv-zoom-label {
+      font-size: 11px; color: var(--ink-3); min-width: 38px; text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .iv-wrap {
+      flex: 1; min-height: 400px;
+      position: relative; overflow: hidden;
+      background: var(--bg-2); border-radius: 8px; border: 1px solid var(--line);
+    }
+    .iv-img {
+      position: absolute; top: 0; left: 0;
+      transform-origin: 0 0;
+      user-select: none; pointer-events: none;
+      max-width: none;
+    }
+    .iv-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      cursor: grab;
+    }
+    .iv-canvas.panning     { cursor: grabbing !important; }
+    .iv-canvas.select-mode { cursor: crosshair !important; }
+    .btn.iv-select-btn.sel-active {
+      background: rgba(244,183,64,.14) !important;
+      border-color: var(--amber) !important;
+      color: var(--amber) !important;
+    }
+    .iv-quote-badge {
+      position: absolute; z-index: 10;
+      background: var(--panel); border: 1px solid var(--amber);
+      border-radius: 8px; padding: 5px 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.45);
+      pointer-events: all;
+    }
+    .reading-pdf-wrap { flex: 1; min-height: 500px; }
+    .reading-pdf-wrap iframe { width: 100%; height: 100%; border: none; border-radius: 8px; }
+    .reading-url-card {
+      border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px;
+      background: var(--bg-2);
+    }
+    .reading-url-domain {
+      font: 500 11px/1 'JetBrains Mono', monospace; color: var(--ink-4);
+      letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .reading-url-title { font: 700 15px/1.3 'Inter', sans-serif; color: var(--ink); margin-bottom: 6px; }
+    .reading-url-desc  { font-size: 12.5px; color: var(--ink-3); line-height: 1.5; }
+    .reading-url-open {
+      display: inline-block; margin-top: 12px; padding: 7px 14px;
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
+      color: var(--ink-2); font: 600 12px/1 'Inter', sans-serif; text-decoration: none;
+      transition: border-color .12s;
+    }
+    .reading-url-open:hover { border-color: var(--ink-3); color: var(--ink); }
+
+    /* Reading source rail item actions */
+    .source-item-del {
+      display: none; background: none; border: none; color: var(--ink-4);
+      font-size: 13px; cursor: pointer; padding: 2px 4px; border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .source-item:hover .source-item-del { display: block; }
+    .source-item-del:hover { color: var(--red); }
+
+    .source-item-rename {
+      display: none; background: none; border: none; color: var(--ink-4);
+      font-size: 12px; cursor: pointer; padding: 2px 4px; border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .source-item:hover .source-item-rename { display: block; }
+    .source-item-rename:hover { color: var(--ink); }
+
+    .source-item-season {
+      display: none; background: none; border: none; color: var(--ink-4);
+      font-size: 11px; cursor: pointer; padding: 2px 4px; border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .source-item:hover .source-item-season { display: block; }
+    .source-item-season:hover { color: var(--amber); }
+    .source-item-season.season-pinned { display: block; color: var(--amber); }
+
+    .source-item-actions {
+      display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0;
+    }
+
+    .source-rename-input {
+      width: 100%; background: var(--bg-2); border: 1px solid var(--red);
+      border-radius: 4px; padding: 2px 6px; color: var(--ink);
+      font: 600 12.5px/1.4 'Inter', sans-serif; outline: none;
+    }
+
+    /* ─────────────────────────────────────────
+       FOCAL PANE
+    ───────────────────────────────────────── */
+    .focal-pane {
+      padding: 16px;
+      display: flex; flex-direction: column; gap: 14px;
+      min-height: 720px;
+      position: relative;
+    }
+
+    .source-header {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .source-header-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .source-header-title {
+      font-size: 16px; font-weight: 700; color: var(--ink); letter-spacing: -.005em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .source-header-meta { font-size: 12px; color: var(--ink-3); }
+    .source-header-actions { display: flex; gap: 8px; }
+
+    .clip-controls-bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+      padding: 12px 14px;
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    }
+    .clip-ts {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; color: var(--red); min-width: 64px; text-align: center;
+    }
+    .clip-sep { width: 1px; height: 22px; background: var(--line-soft); margin: 0 2px; }
+
+    /* ─────────────────────────────────────────
+       BUTTONS
+    ───────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 12px; border-radius: 8px;
+      font: 600 12px/1 'Inter', sans-serif; cursor: pointer;
+      border: 1px solid transparent;
+      transition: background .12s, border-color .12s;
+      white-space: nowrap;
+    }
+    .btn.primary { background: var(--red); color: #fff; border-color: var(--red); }
+    .btn.primary:hover { background: var(--red-2); border-color: var(--red-2); }
+    .btn.ghost { background: transparent; color: var(--ink-3); border-color: var(--line); }
+    .btn.ghost:hover { background: var(--bg-3); color: var(--ink); }
+    .btn.green-btn { background: rgba(22,182,125,.15); color: var(--green); border-color: rgba(22,182,125,.3); }
+    .btn.green-btn:hover { background: rgba(22,182,125,.25); }
+    .btn.sm { padding: 5px 9px; font-size: 11px; }
+
+    /* ─────────────────────────────────────────
+       NOTES COLUMN
+    ───────────────────────────────────────── */
+    .notes-column {
+      display: flex; flex-direction: column;
+      min-height: 400px;
+      max-height: calc(100vh - 40px);
+      position: sticky; top: 20px;
+      overflow: hidden;
+    }
+
+    .notes-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+    }
+
+    .save-status-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--ink-3);
+    }
+    .save-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 0 3px rgba(22,182,125,.15);
+      flex-shrink: 0;
+    }
+
+    .presence-stack { display: flex; align-items: center; }
+    .presence-avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      color: #0a0a0a; font-weight: 700; font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 2px solid var(--panel);
+    }
+    .presence-avatar + .presence-avatar { margin-left: -7px; }
+    .presence-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: var(--ink-4); letter-spacing: .1em; margin-left: 7px;
+    }
+
+    /* D-tabs */
+    .d-tab-row-wrapper {
+      padding: 8px 14px 0;
+      border-bottom: 1px solid var(--line-soft);
+      flex-shrink: 0;
+    }
+    .d-tab-row { display: flex; gap: 4px; align-items: flex-end; }
+    .d-tab {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-bottom: 1px solid transparent;
+      border-top-left-radius: 7px; border-top-right-radius: 7px;
+      color: var(--ink-3); font: 500 12.5px/1 'Inter', sans-serif;
+      cursor: pointer; margin-bottom: -1px; position: relative;
+      transition: color .12s;
+    }
+    .d-tab:hover { color: var(--ink-2); }
+    .d-tab.active {
+      background: var(--panel-2);
+      border-color: var(--line);
+      border-bottom-color: var(--panel-2);
+      color: var(--ink); font-weight: 700;
+    }
+    .d-tab-icon { font-size: 10px; color: var(--ink-4); }
+    .you-chip {
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      color: var(--purple); background: rgba(139,92,246,.14);
+      border: 1px solid rgba(139,92,246,.3); border-radius: 3px;
+      padding: 1px 4px; letter-spacing: .1em; margin-left: 2px;
+    }
+    .d-tab-banner {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 6px 10px; font-size: 11px; color: var(--ink-4);
+    }
+    .shared-dot { font-family: 'JetBrains Mono', monospace; letter-spacing: .1em; }
+    .sd-green  { color: var(--green); }
+    .sd-purple { color: var(--purple); }
+
+    /* Notes scrollable body */
+    .notes-doc-scroll {
+      flex: 1; overflow-y: auto;
+      padding: 20px 24px 80px 36px;
+      background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+      border-radius: 0 0 14px 14px;
+    }
+
+    .note-section { display: none; }
+    .note-section.active { display: block; }
+
+    .wysi-editor a {
+        color: skyblue;
+        text-decoration: inherit;
+        cursor: pointer;
+    }
+    .wysi-editor a:hover {
+        text-decoration: underline;
+        color: lightskyblue;
+    }
+    /* ─────────────────────────────────────────
+       WYSI EDITOR DARK THEME
+    ───────────────────────────────────────── */
+    .wysi-wrapper {
+      border: 1px solid var(--line); border-radius: 8px;
+      background: var(--panel-2); min-height: 300px;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .wysi-toolbar {
+      background: var(--bg-3) !important;
+      border-bottom: 1px solid var(--line) !important;
+      flex-shrink: 0;
+    }
+    .wysi-toolbar button {
+      color: var(--ink-3) !important;
+    }
+    .wysi-toolbar button:hover,
+    .wysi-toolbar button.wysi-active {
+      color: var(--ink) !important;
+      background: var(--bg-2) !important;
+    }
+    .wysi-editor {
+      flex: 1; padding: .75rem 1rem;
+      color: var(--ink); font-size: .875rem; line-height: 1.65;
+      min-height: 260px; outline: none; overflow-y: auto;
+    }
+    .wysi-editor h2 { color: var(--red); font-size: 1.15rem; font-weight: 700; margin: .6em 0 .15em; }
+    .wysi-editor h3 { color: var(--ink); font-size: 1rem; font-weight: 600; margin: .5em 0 .1em; }
+    .wysi-editor p { margin: .2em 0; }
+    .wysi-editor ul, .wysi-editor ol {
+        padding-left: 1.5rem;
+        margin: .2em 0;
+        list-style: revert;
+    }
+    .wysi-editor li { margin: .1em 0; }
+    .wysi-editor blockquote {
+      padding: .5rem 0 .5rem 1rem; border-left: 3px solid var(--line);
+      color: var(--ink-3); margin: .5em 0;
+    }
+    .wysi-editor blockquote cite { display: block; font-size: .8rem; margin-top: .25em; }
+
+    /* ─────────────────────────────────────────
+       EMBED BLOCKS
+    ───────────────────────────────────────── */
+    /* clip embed */
+    .clip-embed-block {
+      display: flex; align-items: stretch;
+      margin: 10px 0;
+      background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: 10px; overflow: hidden;
+    }
+    .clip-embed-play {
+      width: 44px; flex: 0 0 44px;
+      display: flex; align-items: flex-start; justify-content: center; padding-top: 12px;
+      background: rgba(239,74,82,.18); color: var(--red); font-size: 16px;
+      border-right: 1px solid rgba(239,74,82,.25);
+    }
+    .clip-embed-meta { flex: 1; padding: 11px 14px 12px; }
+    .clip-embed-ts {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: var(--red); letter-spacing: .05em; margin-bottom: 4px;
+    }
+    .clip-embed-label { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+    .clip-embed-sub   { font-size: 12px; color: var(--ink-4); margin-top: 2px; }
+    .clip-embed-actions {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; padding: 10px 12px; color: var(--ink-4); font-size: 14px;
+    }
+
+    /* quote embed */
+    .quote-embed-block {
+      display: flex; align-items: stretch; margin: 10px 0;
+      background: linear-gradient(180deg, rgba(244,183,64,.08) 0%, rgba(244,183,64,.04) 100%);
+      border: 1px solid rgba(244,183,64,.35);
+      border-radius: 10px; overflow: hidden;
+    }
+    .quote-embed-icon {
+      width: 44px; flex: 0 0 44px;
+      display: flex; align-items: flex-start; justify-content: center; padding-top: 12px;
+      background: rgba(244,183,64,.18); color: var(--amber);
+      font-size: 22px; font-weight: 700; font-family: Georgia, serif;
+      border-right: 1px solid rgba(244,183,64,.25);
+    }
+    .quote-embed-meta { flex: 1; padding: 11px 14px 12px; }
+    .quote-embed-src {
+      font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+      color: var(--amber); letter-spacing: .08em; margin-bottom: 6px;
+    }
+    .quote-embed-text {
+      font-family: Georgia, serif; font-style: italic;
+      font-size: 14px; line-height: 1.45; color: var(--ink); margin-bottom: 5px;
+    }
+    .quote-embed-attr { font-size: 11.5px; color: var(--ink-3); }
+    .quote-embed-actions {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; padding: 10px 12px; color: var(--ink-4); font-size: 14px;
+    }
+
+    /* excerpt embed */
+    .excerpt-embed-block {
+      display: flex; align-items: stretch; margin: 10px 0;
+      background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: 10px; overflow: hidden;
+    }
+    .excerpt-thumb {
+      width: 84px; flex: 0 0 84px;
+      background: #f5efe2;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(29,26,20,.85) 0 1.5px, transparent 1.5px 6px),
+        linear-gradient(180deg, rgba(0,0,0,.05), transparent 30%);
+      position: relative; border-right: 1px solid var(--line);
+    }
+    .excerpt-thumb-tag {
+      position: absolute; bottom: 4px; left: 4px;
+      font-family: 'JetBrains Mono', monospace; font-size: 8px;
+      color: #3a3327; letter-spacing: .12em;
+      background: rgba(245,239,226,.85); padding: 1px 4px; border-radius: 2px;
+    }
+    .excerpt-embed-meta { flex: 1; padding: 11px 14px 12px; }
+    .excerpt-embed-src {
+      font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+      color: var(--purple); letter-spacing: .08em; margin-bottom: 5px;
+    }
+    .excerpt-embed-caption { font-size: 14px; color: var(--ink); line-height: 1.4; }
+    .excerpt-embed-actions {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; padding: 10px 12px; color: var(--ink-4); font-size: 14px;
+    }
+
+    /* ─────────────────────────────────────────
+       TIMESTAMP CHIPS
+    ───────────────────────────────────────── */
+    .ts-chip {
+      display: inline-block; cursor: pointer;
+      background: var(--bg-3); border: 1px solid var(--line); border-radius: 4px;
+      padding: 1px 6px; font-size: .7rem;
+      font-family: 'JetBrains Mono', monospace; color: var(--red);
+      margin: 2px 2px 0 0; transition: background .1s;
+    }
+    .ts-chip:hover { background: var(--bg-2); text-decoration: underline; }
+    .ts-chips-row { margin-top: 6px; }
+
+    /* ─────────────────────────────────────────
+       FORM INPUTS
+    ───────────────────────────────────────── */
+    .note-input {
+      width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: 7px; padding: .5rem .625rem;
+      color: var(--ink); font-family: inherit; font-size: .875rem;
+      outline: none; transition: border-color .15s;
+    }
+    .note-input:focus { border-color: var(--red); }
+    .note-input::placeholder { color: var(--ink-4); }
+    .field-label {
+      display: block; font-size: .8rem; font-weight: 600;
+      color: var(--ink-4); margin-bottom: .25rem;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    textarea { resize: vertical; font-size: .875rem; font-family: inherit; }
+
+    /* ─────────────────────────────────────────
+       COLLAPSIBLE PANELS (drives / plays)
+    ───────────────────────────────────────── */
+    .data-card {
+      background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: 10px; margin-bottom: 12px; overflow: hidden;
+    }
+    .data-card summary {
+      padding: 10px 14px; cursor: pointer; list-style: none;
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--ink-4); user-select: none;
+      transition: color .15s;
+    }
+    .data-card summary:hover { color: var(--ink); }
+    .data-card summary::-webkit-details-marker { display: none; }
+
+    /* ─────────────────────────────────────────
+       QUOTE COMPOSER OVERLAY
+    ───────────────────────────────────────── */
+    #quote-composer {
+      position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+      width: 580px; max-width: calc(100vw - 48px);
+      background: var(--panel); border: 1px solid var(--amber);
+      border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.6);
+      z-index: 100; overflow: hidden;
+    }
+    #quote-composer.hidden { display: none; }
+
+    .qc-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: rgba(244,183,64,.10);
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .qc-icon {
+      width: 22px; height: 22px; border-radius: 5px;
+      background: var(--amber); color: #1a1408;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+    }
+    .qc-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .qc-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      letter-spacing: .15em; color: var(--ink-4); margin-bottom: 4px;
+    }
+    .qc-badge {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      border-radius: 4px; padding: 2px 6px; letter-spacing: .12em;
+    }
+    .qc-badge.loading {
+      color: var(--purple); background: rgba(139,92,246,.12);
+      border: 1px solid rgba(139,92,246,.35);
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .qc-badge.done {
+      color: var(--green); background: rgba(22,182,125,.12);
+      border: 1px solid rgba(22,182,125,.35);
+    }
+    .qc-textarea {
+      width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: 7px; padding: 10px 12px; color: var(--ink);
+      font: italic 500 14px/1.45 Georgia, serif; outline: none; resize: vertical;
+    }
+    .qc-input {
+      width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: 7px; padding: 8px 10px; color: var(--ink);
+      font: 500 13px/1.3 'Inter', sans-serif; outline: none;
+    }
+    .qc-textarea:focus, .qc-input:focus { border-color: var(--amber); outline: none; }
+    .qc-skel-wrap { position: relative; }
+    .qc-skel-overlay {
+      position: absolute; inset: 0; pointer-events: none;
+      display: flex; align-items: center; padding: 0 14px;
+    }
+    .qc-skel-lines { display: flex; flex-direction: column; gap: 6px; width: 70%; }
+    .qc-skel-line { height: 9px; background: var(--ink-4); opacity: .3; border-radius: 2px; }
+    .qc-footer { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+
+    /* ─────────────────────────────────────────
+       ANIMATIONS
+    ───────────────────────────────────────── */
+    @keyframes prep-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @keyframes prep-pulse {
+      0%, 100% { opacity: .3; }
+      50%       { opacity: .6; }
+    }
+    .prep-spinner {
+      display: inline-block; width: 9px; height: 9px;
+      border: 1.5px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: prep-spin .8s linear infinite;
+    }
+
+    /* ─────────────────────────────────────────
+       SCROLLBARS
+    ───────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--line-soft); }
+
+    /* ─────────────────────────────────────────
+       SHORTCUTS ACCORDION
+    ───────────────────────────────────────── */
+    .shortcuts-details summary {
+      padding: 8px 12px; border-radius: 8px; font-size: .78rem; cursor: pointer;
+      color: var(--ink-4); background: var(--panel-2); border: 1px solid var(--line);
+      transition: color .15s; user-select: none; list-style: none;
+    }
+    .shortcuts-details summary:hover { color: var(--ink); }
+    .shortcuts-details summary::-webkit-details-marker { display: none; }
+
+    /* ─────────────────────────────────────────
+       MOBILE RESPONSIVE
+    ───────────────────────────────────────── */
+
+    /* Hidden on desktop, shown on mobile */
+    .source-rail-mobile-header { display: none; }
+    .focal-pin-btn { display: none; }
+
+    /* Source rail body: flex column on desktop, toggled on mobile */
+    .source-rail-body {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      flex: 1;
+      padding: 14px;
+    }
+
+    @media (max-width: 768px) {
+      .outer-wrapper { padding: 0 10px 40px; }
+
+      .workspace-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      /* Notes column: remove sticky so it flows naturally */
+      .notes-column {
+        position: static;
+        max-height: none;
+        min-height: unset;
+        order: 3;
+      }
+
+      /* Source rail: collapsed by default on mobile, full-width below video */
+      .source-rail {
+        min-height: unset;
+        padding: 0;
+        gap: 0;
+        order: 2;
+        margin-left: -10px;
+        margin-right: -10px;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+      }
+
+      /* Focal pane: no fixed min-height on mobile, appears first */
+      .focal-pane {
+        min-height: unset;
+        order: 1;
+      }
+
+      .source-rail-mobile-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        cursor: pointer;
+        user-select: none;
+        gap: 8px;
+      }
+
+      .source-rail-mobile-header-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .15em;
+        color: var(--ink-3);
+        font-family: 'JetBrains Mono', monospace;
+        text-transform: uppercase;
+      }
+
+      .source-rail-mobile-count {
+        font-size: 11px;
+        color: var(--ink-4);
+        font-family: 'JetBrains Mono', monospace;
+        flex: 1;
+      }
+
+      .source-rail-mobile-arrow {
+        font-size: 10px;
+        color: var(--ink-4);
+        transition: transform .2s;
+        flex-shrink: 0;
+      }
+
+      .source-rail.rail-expanded .source-rail-mobile-arrow {
+        transform: rotate(180deg);
+      }
+
+      .source-rail-body {
+        display: none;
+        flex-direction: column;
+        gap: 14px;
+        padding: 4px 14px 14px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .source-rail.rail-expanded .source-rail-body {
+        display: flex;
+        min-height: 50vh;
+      }
+
+      /* Focal pane pin button */
+      .focal-pin-btn { display: inline-flex; }
+
+      /* Focal pane: pinned to top of viewport */
+      .focal-pane.focal-pinned {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        max-height: calc(56.25vw + 100px);
+        overflow: hidden;
+      }
+
+      /* When pinned, hide secondary content to keep it compact */
+      .focal-pane.focal-pinned .clip-controls-bar,
+      .focal-pane.focal-pinned .shortcuts-details,
+      .focal-pane.focal-pinned .data-card,
+      .focal-pane.focal-pinned #focal-reading { display: none; }
+
+      .focal-pane.focal-pinned .source-header { flex-shrink: 0; }
+
+      /* Episode selector: stack label + select vertically on mobile */
+      #episode-selector-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      #episode-selector-row > span { margin-bottom: 2px; }
+      #episode-select { width: 100% !important; }
+    }
+
+    /* ── Screenshots section ── */
+    #screenshots-count { font-weight: 400; opacity: .7; }
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 6px;
+      padding: .5rem .75rem .75rem;
+    }
+    .ss-thumb {
+      position: relative;
+      border-radius: 4px;
+      overflow: hidden;
+      background: var(--bg-3);
+      aspect-ratio: 16/9;
+      cursor: zoom-in;
+    }
+    .ss-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ss-del {
+      position: absolute;
+      top: 3px; right: 3px;
+      background: rgba(0,0,0,.55);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      font-size: .65rem;
+      line-height: 1;
+      padding: 2px 4px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity .12s;
+    }
+    .ss-thumb:hover .ss-del { opacity: 1; }
+    .ss-ins {
+      position: absolute;
+      top: 3px; left: 3px;
+      background: rgba(0,0,0,.55);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      font-size: .65rem;
+      line-height: 1;
+      padding: 2px 4px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity .12s;
+    }
+    .ss-thumb:hover .ss-ins { opacity: 1; }
+    .ss-time {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,.6);
+      color: #fff;
+      border: none;
+      font-size: .6rem;
+      font-family: 'JetBrains Mono', monospace;
+      text-align: center;
+      padding: 2px 0;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity .12s;
+    }
+    .ss-thumb:hover .ss-time { opacity: 1; }
+
+    /* ── Screenshot modal ── */
+    .ss-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      cursor: zoom-out;
+    }
+    .ss-modal.hidden { display: none; }
+    .ss-modal img {
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: 6px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.6);
+      cursor: default;
+    }
+    .ss-modal-close {
+      position: absolute;
+      top: 16px; right: 20px;
+      background: rgba(255,255,255,.15);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 32px; height: 32px;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ss-modal-close:hover { background: rgba(255,255,255,.25); }
+
+    /* ── Screenshot saved flash ── */
+    .screenshot-flash {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--bg-3);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: .3rem .75rem;
+      font-size: .75rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .2s, transform .2s;
+      z-index: 50;
+      white-space: nowrap;
+    }
+    .screenshot-flash.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ Login overlay ══ -->
+  <div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(6,21,40,.97)">
+    <div style="background:var(--panel);border:1px solid var(--line)" class="rounded-xl shadow-2xl w-full max-w-xs p-6">
+      <h2 class="text-lg font-bold mb-1 text-center">Podcast Studio Prep</h2>
+      <p class="text-sm text-center mb-5" style="color:var(--ink-4)">Enter your name and the session password</p>
+      <div class="space-y-3">
+        <div>
+          <label class="field-label">Your Name</label>
+          <input id="login-name" type="text" class="note-input" placeholder="e.g. Andy" maxlength="30" autocomplete="off" />
+        </div>
+        <div>
+          <label class="field-label">Password</label>
+          <input id="login-password" type="password" class="note-input" placeholder="Session password" />
+        </div>
+        <p id="login-error" class="text-red-400 text-xs hidden">Incorrect password.</p>
+        <button id="login-btn" class="btn primary" style="width:100%;justify-content:center;font-size:.9rem;padding:.6rem 1rem;border-radius:8px">Enter</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="outer-wrapper">
+
+    <!-- ══ Header ══ -->
+    <header style="text-align:center;padding:20px 0 12px">
+      <div style="font-size:24px;font-weight:800;letter-spacing:-.01em">
+        <span style="color:#fff">Podcast Studio</span> <span style="color:var(--red)">Prep</span>
+      </div>
+      <p style="margin-top:8px">
+        <span id="user-badge" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-4);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px">
+          Signed in as <strong id="user-badge-name" style="color:var(--ink)"></strong>
+          <span style="color:var(--line)">·</span>
+          <button id="switch-user-btn" style="color:var(--red);background:none;border:none;cursor:pointer;font:inherit;padding:0">Switch</button>
+        </span>
+      </p>
+    </header>
+
+    <!-- ══ Episode Selector ══ -->
+    <div id="episode-selector-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:16px">
+      <span style="font-size:13px;font-weight:600;color:var(--ink-3);white-space:nowrap">Episode</span>
+      <select id="episode-select" class="note-input" style="flex:1;padding:.35rem .6rem">
+        <option value="">Select an episode…</option>
+      </select>
+      <button id="new-episode-btn" class="btn primary sm" style="white-space:nowrap">+ New Episode</button>
+    </div>
+
+    <!-- ══ Three-column workspace ══ -->
+    <div class="workspace-grid">
+
+      <!-- ── Col 1: Source Rail ── -->
+      <div class="panel source-rail" id="source-rail">
+
+        <!-- Mobile-only toggle header -->
+        <div class="source-rail-mobile-header" id="source-rail-toggle">
+          <span class="source-rail-mobile-header-title">Sources</span>
+          <span class="source-rail-mobile-count" id="source-rail-mobile-count"></span>
+          <span class="source-rail-mobile-arrow">▼</span>
+        </div>
+
+        <!-- Collapsible body (always visible on desktop) -->
+        <div class="source-rail-body">
+
+          <div class="rail-group">
+            <div class="rail-group-header">
+              <span class="rail-group-title">SOURCES</span>
+              <span class="rail-group-count" id="rail-reading-count">· 0</span>
+            </div>
+            <div id="rail-reading-items" style="font-size:11px;color:var(--ink-4);padding:4px;line-height:1.4">
+              No sources added yet
+            </div>
+          </div>
+
+          <div style="flex:1"></div>
+
+          <button class="add-source-btn" id="add-source-btn">+ Add source</button>
+          <p class="add-source-hint">drop a video, image, or PDF,<br>or paste a URL</p>
+
+        </div><!-- end source-rail-body -->
+      </div>
+
+      <!-- ── Col 2: Focal Pane ── -->
+      <div class="panel focal-pane" id="focal-pane">
+
+        <!-- Source header -->
+        <div class="source-header">
+          <span class="source-icon-lg si-red">▶</span>
+          <div class="source-header-text">
+            <div class="source-header-title" id="focal-title">No source selected</div>
+            <div class="source-header-meta" id="focal-meta">Add a source to get started</div>
+          </div>
+          <button class="focal-pin-btn btn ghost sm" id="focal-pin-btn" title="Pin video to top while scrolling">⊙ Pin</button>
+        </div>
+
+        <!-- Video view (shown when a video source is active) -->
+        <div id="focal-video">
+          <video id="video-player" crossorigin="anonymous" controls style="border-radius:8px;background:#000"></video>
+
+          <!-- Clip controls -->
+          <div class="clip-controls-bar">
+            <button id="insert-ts-btn" class="btn green-btn sm">Timestamp <kbd>T</kbd></button>
+            <div class="clip-sep"></div>
+            <button id="capture-frame-btn" class="btn ghost sm">Screenshot <kbd>S</kbd></button>
+          </div>
+
+          <!-- Keyboard shortcuts accordion -->
+          <details class="shortcuts-details">
+            <summary>Keyboard Shortcuts</summary>
+            <div style="margin-top:8px;font-size:.78rem;display:grid;grid-template-columns:1fr 1fr;gap:.2rem .75rem;padding:0 4px;color:var(--ink-4)">
+              <div><kbd>T</kbd> / <kbd>Alt</kbd>+<kbd>T</kbd> Insert timestamp</div>
+              <div><kbd>Q</kbd> Pull Quote composer</div>
+              <div><kbd>S</kbd> / <kbd>Alt</kbd>+<kbd>S</kbd> Screenshot</div>
+              <div><kbd>←</kbd>/<kbd>→</kbd> Seek ±10s</div>
+              <div><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd> ±5s</div>
+              <div><kbd>Space</kbd> Play / Pause</div>
+            </div>
+          </details>
+
+          <!-- Screenshots -->
+          <details id="screenshots-section" class="screenshots-section data-card">
+            <summary>📸 Screenshots <span id="screenshots-count"></span></summary>
+            <div id="screenshots-grid" class="screenshots-grid"></div>
+          </details>
+        </div><!-- end focal-video -->
+
+        <div id="screenshot-flash" class="screenshot-flash">Screenshot saved</div>
+
+        <!-- Reading view (shown when a reading source is active) -->
+        <div id="focal-reading"></div>
+
+      </div><!-- end focal-pane -->
+
+      <!-- ── Col 3: Notes Column ── -->
+      <div class="notes-column panel">
+
+        <!-- Header -->
+        <div class="notes-header">
+          <div class="save-status-pill">
+            <span class="save-dot" id="save-dot"></span>
+            <span id="save-indicator">No game selected</span>
+          </div>
+          <span style="flex:1"></span>
+          <div class="presence-stack" id="presence-stack"></div>
+          <div style="display:flex;gap:6px">
+            <button id="copy-text-btn" class="btn ghost sm">Copy Text</button>
+            <button id="export-json-btn" class="btn primary sm">Export</button>
+          </div>
+        </div>
+
+        <!-- D-tab row -->
+        <div class="d-tab-row-wrapper">
+          <div class="d-tab-row">
+            <button class="d-tab active" data-tab="shared">
+              <span class="d-tab-icon">◉</span>Shared Notes
+            </button>
+            <button class="d-tab" data-tab="mine">
+              <span class="d-tab-icon" style="color:var(--purple)">✎</span>My Notes<span class="you-chip">YOU</span>
+            </button>
+          </div>
+          <div class="d-tab-banner" id="d-tab-banner">
+            <span class="shared-dot sd-green" id="banner-dot">●</span>
+            <span id="banner-text">SHARED · Co-edited with the crew · auto-saving</span>
+          </div>
+        </div>
+
+        <!-- Tab content -->
+        <div class="notes-doc-scroll">
+
+          <!-- Shared tab -->
+          <div id="tab-shared" class="note-section active">
+            <textarea id="ej-n-shared" class="wysi-holder" data-editor-holder></textarea>
+            <div class="ts-chips-row" data-field="n-shared"></div>
+          </div>
+
+          <!-- Mine tab -->
+          <div id="tab-mine" class="note-section">
+            <textarea id="ej-n-mine" class="wysi-holder" data-editor-holder></textarea>
+            <div class="ts-chips-row" data-field="n-mine"></div>
+          </div>
+
+        </div><!-- end notes-doc-scroll -->
+
+      </div><!-- end notes-column -->
+
+    </div><!-- end workspace-grid -->
+  </div><!-- end outer-wrapper -->
+
+  <!-- ══ Screenshot Modal ══ -->
+  <div id="ss-modal" class="ss-modal hidden" tabindex="-1">
+    <button id="ss-modal-close" class="ss-modal-close">✕</button>
+    <img id="ss-modal-img" src="" alt="Screenshot">
+  </div>
+
+  <!-- ══ Add Source Modal ══ -->
+  <div id="source-modal" class="hidden">
+    <div class="source-modal-box">
+      <div class="sm-header">
+        <span class="sm-title">Add Source</span>
+        <button class="sm-close" id="source-modal-close">✕</button>
+      </div>
+      <div class="sm-tabs">
+        <button class="sm-tab active" data-sm-tab="file">Upload File</button>
+        <button class="sm-tab" data-sm-tab="url">Paste URL</button>
+      </div>
+      <div class="sm-body">
+        <!-- File panel -->
+        <div class="sm-panel active" id="sm-panel-file">
+          <div class="drop-zone" id="drop-zone" tabindex="0">
+            <div class="dz-icon">📎</div>
+            <div>Drop a file here or <strong>click to browse</strong></div>
+            <div class="dz-hint">Video, audio, images, PDFs — up to 2 GB</div>
+          </div>
+          <input type="file" id="source-file-input" accept="image/*,.pdf,video/*,audio/*" style="display:none">
+          <div class="sm-msg" id="sm-file-msg"></div>
+        </div>
+        <!-- URL panel -->
+        <div class="sm-panel" id="sm-panel-url">
+          <div class="sm-url-row">
+            <input type="url" class="sm-url-input" id="sm-url-input" placeholder="https://…" autocomplete="off">
+            <button class="btn primary" id="sm-url-add-btn">Add</button>
+          </div>
+          <div class="sm-msg" id="sm-url-msg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Quote Composer (fixed overlay) ══ -->
+  <div id="quote-composer" class="hidden">
+    <div class="qc-header">
+      <span class="qc-icon">❝</span>
+      <span style="font-weight:700;font-size:13px">Pull a quote</span>
+      <span class="mono" style="font-size:10.5px;color:var(--ink-4);letter-spacing:.1em" id="qc-source-label">from SOURCE</span>
+      <span style="flex:1"></span>
+      <button id="qc-close-btn" style="background:transparent;border:0;color:var(--ink-3);font-size:16px;cursor:pointer;padding:4px 6px">×</button>
+    </div>
+    <div class="qc-body">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div class="qc-label">QUOTE</div>
+          <span style="flex:1"></span>
+          <span class="qc-badge loading" id="qc-badge">
+            <span class="prep-spinner"></span> READING HIGHLIGHT…
+          </span>
+        </div>
+        <div class="qc-skel-wrap">
+          <textarea id="qc-text" class="qc-textarea" rows="3" placeholder="extracting text from the highlighted region…"></textarea>
+          <div class="qc-skel-overlay" id="qc-skeleton">
+            <div class="qc-skel-lines">
+              <div class="qc-skel-line" style="width:95%;animation:prep-pulse 1.2s ease-in-out infinite"></div>
+              <div class="qc-skel-line" style="width:80%;animation:prep-pulse 1.2s ease-in-out .15s infinite"></div>
+              <div class="qc-skel-line" style="width:45%;animation:prep-pulse 1.2s ease-in-out .3s infinite"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div class="qc-label">ATTRIBUTED TO</div>
+          <input type="text" id="qc-speaker" class="qc-input" placeholder="Speaker" />
+        </div>
+        <div>
+          <div class="qc-label">CONTEXT</div>
+          <input type="text" id="qc-context" class="qc-input" placeholder="e.g. presser, sideline" />
+        </div>
+      </div>
+      <div class="qc-footer">
+        <span class="mono" style="font-size:10.5px;color:var(--ink-4)">INSERT INTO</span>
+        <select id="qc-target" class="note-input" style="flex:1;max-width:200px;padding:.35rem .6rem;font-size:.8rem">
+          <option value="shared" selected>Shared Notes</option>
+          <option value="mine">My Notes</option>
+        </select>
+        <span style="flex:1"></span>
+        <button id="qc-cancel-btn" class="btn ghost sm">Cancel</button>
+        <button id="qc-add-btn" class="btn primary sm">Add to notes <kbd>⏎</kbd></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+
+    // ── Elements ──────────────────────────────────────────────────────
+    const episodeSelect     = document.getElementById('episode-select');
+    const newEpisodeBtn     = document.getElementById('new-episode-btn');
+    const videoPlayer       = document.getElementById('video-player');
+    const insertTsBtn       = document.getElementById('insert-ts-btn');
+    const captureFrameBtn   = document.getElementById('capture-frame-btn');
+    const saveIndicator     = document.getElementById('save-indicator');
+    const saveDot           = document.getElementById('save-dot');
+    const exportJsonBtn     = document.getElementById('export-json-btn');
+    const copyTextBtn       = document.getElementById('copy-text-btn');
+    const quoteComposer     = document.getElementById('quote-composer');
+    const qcBadge           = document.getElementById('qc-badge');
+    const qcSkeleton        = document.getElementById('qc-skeleton');
+    const qcText            = document.getElementById('qc-text');
+    const addSourceBtn      = document.getElementById('add-source-btn');
+    const sourceModal       = document.getElementById('source-modal');
+    const focalVideo        = document.getElementById('focal-video');
+    const focalReading      = document.getElementById('focal-reading');
+    const railReadingItems  = document.getElementById('rail-reading-items');
+    const railReadingCount  = document.getElementById('rail-reading-count');
+
+    // ── State ─────────────────────────────────────────────────────────
+    let db                = null;
+    let currentGameId     = null;
+    let currentGameTitle  = null;
+    let currentGameSlug   = null;
+    let lastFocusedNoteId = null;
+    let saveTimeout       = null;
+    let currentUser       = localStorage.getItem('podcast-studio-username') || null;
+    let currentRole       = localStorage.getItem('podcast-studio-role') || 'guest';
+    let activeTab         = 'shared';
+    let quoteMode         = false;
+    let sources           = [];
+    let activeSourceId    = null;
+    let prepWs            = null;
+    let broadcastTimers   = {};
+    let applyQueue        = {};
+
+    // ── Note fields ───────────────────────────────────────────────────
+    const NOTE_FIELDS = ['n-shared', 'n-mine'];
+
+    const NOTE_DEFAULTS = {};
+
+    // ── Time helpers ──────────────────────────────────────────────────
+    function formatTime(secs) {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = Math.floor(secs % 60);
+      return h > 0
+        ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+        : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+
+    function parseTime(str) {
+      const p = str.split(':').map(Number);
+      if (p.length === 3) return p[0]*3600 + p[1]*60 + p[2];
+      if (p.length === 2) return p[0]*60 + p[1];
+      return 0;
+    }
+
+    function extractTimestamps(text) {
+      const re = /\[(\d+:\d{2}(?::\d{2})?)\]/g;
+      const out = []; let m;
+      while ((m = re.exec(text)) !== null) out.push(m[1]);
+      return out;
+    }
+
+    function stripHtml(html) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      return tmp.textContent || '';
+    }
+
+    function editorDataToText(data) {
+      if (!data) return '';
+      if (typeof data === 'string') return stripHtml(data);
+      if (data.html != null) return stripHtml(data.html);
+      // backward compat: EditorJS blocks format
+      if (!data.blocks) return '';
+      return data.blocks.map(b => {
+        switch (b.type) {
+          case 'paragraph': return stripHtml(b.data.text || '');
+          case 'header':    return stripHtml(b.data.text || '');
+          case 'list': {
+            const flat = items => items.flatMap(item =>
+              typeof item === 'string'
+                ? [stripHtml(item)]
+                : [stripHtml(item.content || ''), ...(item.items ? flat(item.items) : [])]
+            );
+            return flat(b.data.items || []).join('\n');
+          }
+          case 'quote': return stripHtml(b.data.text || '');
+          default: return '';
+        }
+      }).filter(t => t.trim()).join('\n');
+    }
+
+    function blocksToHtml(blocks) {
+      if (!blocks || !blocks.length) return '';
+      return blocks.map(b => {
+        switch (b.type) {
+          case 'header':    return `<h${b.data.level || 2}>${b.data.text || ''}</h${b.data.level || 2}>`;
+          case 'paragraph': return `<p>${b.data.text || ''}</p>`;
+          case 'list': {
+            const tag = b.data.style === 'ordered' ? 'ol' : 'ul';
+            const items = (b.data.items || []).map(i => {
+              const content = typeof i === 'string' ? i : (i.content || '');
+              return `<li>${content}</li>`;
+            }).join('');
+            return `<${tag}>${items}</${tag}>`;
+          }
+          case 'quote': return `<blockquote><p>${b.data.text || ''}</p>${b.data.caption ? `<cite>${b.data.caption}</cite>` : ''}</blockquote>`;
+          default: return b.data?.text ? `<p>${b.data.text}</p>` : '';
+        }
+      }).join('');
+    }
+
+    // ── Timestamp chips ───────────────────────────────────────────────
+    function updateChips(fieldId, text) {
+      const row = document.querySelector(`.ts-chips-row[data-field="${fieldId}"]`);
+      if (!row) return;
+      const times = extractTimestamps(text || '');
+      if (!times.length) { row.innerHTML = ''; return; }
+      row.innerHTML =
+        '<span style="font-size:.65rem;color:var(--ink-4);margin-right:4px">Jump:</span>' +
+        times.map(t => `<span class="ts-chip" data-ts="${t}">${t}</span>`).join('');
+      row.querySelectorAll('.ts-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          videoPlayer.currentTime = parseTime(chip.dataset.ts);
+          videoPlayer.play();
+        });
+      });
+    }
+
+    // ── Insert at cursor ──────────────────────────────────────────────
+    function insertAtCursor(text) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount && sel.getRangeAt(0).commonAncestorContainer.parentElement?.closest('.wysi-editor')) {
+        document.execCommand('insertText', false, text);
+        return;
+      }
+      // Fallback: append to last focused editor
+      if (!lastFocusedNoteId) return;
+      const el = document.getElementById(`ej-${lastFocusedNoteId}`);
+      if (!el) return;
+      Wysi.setContent(el, (el.value || '') + text);
+      scheduleSave();
+    }
+
+    function insertTimestamp() {
+      if (!videoPlayer.src) return;
+      insertAtCursor(`[${formatTime(videoPlayer.currentTime)}]`);
+    }
+
+    // ── Notes state ───────────────────────────────────────────────────
+    function collectNotes() {
+      const out = {};
+      for (const id of NOTE_FIELDS) {
+        const el = document.getElementById(`ej-${id}`);
+        out[id] = { html: el ? (el.value || '') : '' };
+      }
+      return out;
+    }
+
+    function populateNotes(notes) {
+      for (const id of NOTE_FIELDS) {
+        const el = document.getElementById(`ej-${id}`);
+        if (!el) continue;
+        const data = notes[id];
+        let html;
+        if (data && data.html != null) {
+          html = data.html;
+        } else if (data && data.blocks) {
+          html = blocksToHtml(data.blocks);
+        } else {
+          html = NOTE_DEFAULTS[id]?.html || '';
+        }
+        Wysi.setContent(el, html);
+        updateChips(id, stripHtml(html));
+      }
+    }
+
+    function clearNotes() {
+      for (const id of NOTE_FIELDS) {
+        const el = document.getElementById(`ej-${id}`);
+        if (!el) continue;
+        const html = NOTE_DEFAULTS[id]?.html || '';
+        Wysi.setContent(el, html);
+        updateChips(id, stripHtml(html));
+      }
+    }
+
+    // ── Save status ───────────────────────────────────────────────────
+    function setSaveStatus(text, state) {
+      saveIndicator.textContent = text;
+      if (state === 'saved') {
+        saveDot.style.background   = 'var(--green)';
+        saveDot.style.boxShadow    = '0 0 0 3px rgba(22,182,125,.15)';
+        saveIndicator.style.color  = 'var(--ink-3)';
+      } else if (state === 'unsaved') {
+        saveDot.style.background   = 'var(--amber)';
+        saveDot.style.boxShadow    = '0 0 0 3px rgba(244,183,64,.15)';
+        saveIndicator.style.color  = 'var(--amber)';
+      } else {
+        saveDot.style.background   = 'var(--ink-4)';
+        saveDot.style.boxShadow    = 'none';
+        saveIndicator.style.color  = 'var(--ink-4)';
+      }
+    }
+
+    // ── Game slug ─────────────────────────────────────────────────────
+    function gameToSlug(id) {
+      return id.replace(/^https?:\/\/[^/]+\//, '').replace(/[^a-zA-Z0-9._-]/g,'_').replace(/_+/g,'_').slice(0,150);
+    }
+
+    // ── IndexedDB ─────────────────────────────────────────────────────
+    function initDB() {
+      const req = indexedDB.open('PodcastStudioPrepDB', 1);
+      req.onupgradeneeded = ev => {
+        const d = ev.target.result;
+        if (!d.objectStoreNames.contains('prep')) d.createObjectStore('prep', { keyPath: 'id' });
+      };
+      req.onsuccess = ev => { db = ev.target.result; };
+      req.onerror   = ev => console.error('IndexedDB:', ev.target.errorCode);
+    }
+
+    function saveToIndexedDB(notes) {
+      if (!db || !currentGameId) return;
+      db.transaction(['prep'],'readwrite').objectStore('prep').put({
+        id: currentUser ? `${currentUser}::${currentGameId}` : currentGameId,
+        gameTitle: currentGameTitle, savedAt: new Date().toISOString(), notes,
+      });
+    }
+
+    function loadFromIndexedDB(cb) {
+      if (!db || !currentGameId) return;
+      const key = currentUser ? `${currentUser}::${currentGameId}` : currentGameId;
+      const req = db.transaction(['prep'],'readonly').objectStore('prep').get(key);
+      req.onsuccess = () => cb(req.result || null);
+    }
+
+    // ── Server save / load ────────────────────────────────────────────
+    async function saveToServer(notes) {
+      if (!currentUser || !currentGameSlug) return;
+      try {
+        // Shared fields go to _shared so all users read the same data
+        const sharedNotes = {};
+        const privateNotes = {};
+        for (const [k, v] of Object.entries(notes)) {
+          if (SHARED_FIELDS.includes(k)) sharedNotes[k] = v;
+          else privateNotes[k] = v;
+        }
+        const saves = [
+          fetch('/api/prep-notes', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: '_shared', game: currentGameSlug, title: currentGameTitle, notes: sharedNotes }) }),
+        ];
+        if (Object.keys(privateNotes).length) {
+          const privateKey = `${currentUser}_${currentRole}`;
+          saves.push(fetch('/api/prep-notes', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: privateKey, game: currentGameSlug, notes: privateNotes }) }));
+        }
+        await Promise.all(saves);
+      } catch (e) { console.warn('Server save failed:', e.message); }
+    }
+
+    async function loadFromServer() {
+      if (!currentUser || !currentGameSlug) return null;
+      try {
+        const privateKey = `${currentUser}_${currentRole}`;
+        const [sharedRes, privateRes] = await Promise.all([
+          fetch(`/api/prep-notes?user=_shared&game=${encodeURIComponent(currentGameSlug)}`),
+          fetch(`/api/prep-notes?user=${encodeURIComponent(privateKey)}&game=${encodeURIComponent(currentGameSlug)}`),
+        ]);
+        const sharedNotes = sharedRes.ok ? (await sharedRes.json()).notes : null;
+        const privateNotes = privateRes.ok ? (await privateRes.json()).notes : null;
+        if (!sharedNotes && !privateNotes) return null;
+        return { ...(sharedNotes || {}), ...(privateNotes || {}) };
+      } catch { return null; }
+    }
+
+    // ══════════════════════════════════════════
+    //  REAL-TIME COLLABORATION (WebSocket)
+    // ══════════════════════════════════════════
+
+    const SHARED_FIELDS = ['n-shared'];
+
+    function connectPrepWs() {
+      if (prepWs && prepWs.readyState < 2) return;
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      prepWs = new WebSocket(`${proto}//${location.host}`);
+      prepWs.onopen  = () => { if (currentGameSlug && currentUser) joinPrepRoom(); };
+      prepWs.onclose = () => { setTimeout(connectPrepWs, 3000); };
+      prepWs.onerror = () => { prepWs.close(); };
+      prepWs.onmessage = (e) => {
+        let msg; try { msg = JSON.parse(e.data); } catch { return; }
+        if (msg.type !== 'prep-notes-update') return;
+        const { field, content, username } = msg;
+        if (!SHARED_FIELDS.includes(field)) return;
+        setSaveStatus(`${username} is editing…`, 'saved');
+        if (lastFocusedNoteId === field) {
+          applyQueue[field] = content; // apply when user blurs this editor
+        } else {
+          applyRemoteUpdate(field, content);
+        }
+      };
+    }
+
+    function joinPrepRoom() {
+      if (!prepWs || prepWs.readyState !== 1 || !currentGameSlug || !currentUser) return;
+      prepWs.send(JSON.stringify({ type: 'prep-join', room: `prep:${currentGameSlug}`, username: currentUser }));
+    }
+
+    function applyRemoteUpdate(field, content) {
+      const el = document.getElementById(`ej-${field}`);
+      if (!el) return;
+      const html = typeof content === 'string' ? content : (content?.html || '');
+      Wysi.setContent(el, html);
+      updateChips(field, stripHtml(html));
+    }
+
+    function broadcastNotesUpdate(field) {
+      if (!SHARED_FIELDS.includes(field)) return;
+      if (!prepWs || prepWs.readyState !== 1) return;
+      clearTimeout(broadcastTimers[field]);
+      broadcastTimers[field] = setTimeout(() => {
+        const el = document.getElementById(`ej-${field}`);
+        if (!el) return;
+        prepWs.send(JSON.stringify({ type: 'prep-notes-update', field, content: { html: el.value } }));
+      }, 300);
+    }
+
+    async function saveNotes() {
+      if (!currentGameId) return;
+      const notes = collectNotes();
+      saveToIndexedDB(notes);
+      await saveToServer(notes);
+      setSaveStatus('Saved · ' + new Date().toLocaleTimeString(), 'saved');
+    }
+
+    async function loadNotes() {
+      if (!currentGameId) return;
+      setSaveStatus('Loading…', 'idle');
+      let notes = await loadFromServer();
+      const source = notes ? 'server' : 'local';
+      if (!notes) notes = await new Promise(r => loadFromIndexedDB(rec => r(rec ? rec.notes : null)));
+      if (notes) {
+        populateNotes(notes);
+        setSaveStatus(source === 'server' ? 'Loaded from server' : 'Loaded from local cache', 'saved');
+      } else {
+        clearNotes();
+        setSaveStatus(currentUser ? 'New game — start taking notes' : 'No notes saved', 'idle');
+      }
+    }
+
+    function scheduleSave() {
+      if (!currentGameId) return;
+      setSaveStatus('Unsaved changes…', 'unsaved');
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(saveNotes, 1200);
+    }
+
+    // ── Tab switching ─────────────────────────────────────────────────
+    const D_TABS = [
+      { k: 'shared', shared: true  },
+      { k: 'mine',   shared: false },
+    ];
+
+    function switchTab(tabKey) {
+      activeTab = tabKey;
+      document.querySelectorAll('.d-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabKey));
+      document.querySelectorAll('.note-section').forEach(s => s.classList.remove('active'));
+      const sec = document.getElementById(`tab-${tabKey}`);
+      if (sec) sec.classList.add('active');
+
+      const def = D_TABS.find(t => t.k === tabKey);
+      const bannerDot  = document.getElementById('banner-dot');
+      const bannerText = document.getElementById('banner-text');
+      const presence   = document.getElementById('presence-stack');
+
+      if (def && !def.shared) {
+        bannerDot.className = 'shared-dot sd-purple';
+        bannerText.textContent = 'PRIVATE · Only you can see this tab.';
+        presence.innerHTML = '';
+      } else {
+        bannerDot.className = 'shared-dot sd-green';
+        bannerText.textContent = 'SHARED · Co-edited with the crew · auto-saving';
+        if (currentUser) {
+          presence.innerHTML =
+            `<span class="presence-avatar" style="background:var(--red)">${currentUser[0].toUpperCase()}</span>` +
+            `<span class="presence-label">EDITING</span>`;
+        }
+      }
+    }
+
+    document.querySelectorAll('.d-tab').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // ── Wysi init ─────────────────────────────────────────────────────
+    NOTE_FIELDS.forEach(id => {
+      const holderId = `ej-${id}`;
+      const el = document.getElementById(holderId);
+      if (!el) return;
+      el.value = NOTE_DEFAULTS[id]?.html || '';
+      Wysi({
+        el: `#${holderId}`,
+        darkMode: true,
+        autoGrow: true,
+        autoHide: false,
+        tools: ['format', 'bold', 'italic', 'ul', 'ol', 'indent', 'outdent', 'quote', 'link'],
+        onChange: (content) => {
+          updateChips(id, stripHtml(content));
+          scheduleSave();
+          broadcastNotesUpdate(id);
+        },
+      });
+      // Attach focus tracking to the Wysi contenteditable div
+      const wrapper = el.previousElementSibling;
+      const editorDiv = wrapper?.querySelector?.('.wysi-editor');
+      if (editorDiv) {
+        editorDiv.addEventListener('focusin',  () => { lastFocusedNoteId = id; });
+        editorDiv.addEventListener('focusout', () => {
+          if (applyQueue[id]) {
+            const content = applyQueue[id];
+            delete applyQueue[id];
+            applyRemoteUpdate(id, content);
+          }
+        });
+      }
+    });
+
+    // ── Timestamp click-to-seek (click [MM:SS] text inside editors) ───
+    function handleEditorTimestampClick(e) {
+      if (!videoPlayer.src) return;
+      if (!e.target.closest('.wysi-editor')) return;
+      let range;
+      if (document.caretRangeFromPoint) {
+        range = document.caretRangeFromPoint(e.clientX, e.clientY);
+      } else if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+        if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); }
+      }
+      if (!range || range.startContainer.nodeType !== Node.TEXT_NODE) return;
+      const text = range.startContainer.textContent;
+      const offset = range.startOffset;
+      const re = /\[(\d+:\d{2}(?::\d{2})?)\]/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        if (offset > m.index && offset <= m.index + m[0].length) {
+          videoPlayer.currentTime = parseTime(m[1]);
+          videoPlayer.play();
+          videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          return;
+        }
+      }
+    }
+    document.addEventListener('click', handleEditorTimestampClick);
+
+    // ── Video controls ────────────────────────────────────────────────
+    insertTsBtn.addEventListener('click', insertTimestamp);
+    captureFrameBtn.addEventListener('click', captureFrame);
+
+    async function captureFrame() {
+      if (!videoPlayer.src || !currentGameSlug) return;
+      const c = document.createElement('canvas');
+      c.width = videoPlayer.videoWidth; c.height = videoPlayer.videoHeight;
+      c.getContext('2d').drawImage(videoPlayer, 0, 0);
+      try {
+        const dataUrl = c.toDataURL('image/png');
+        const videoTime = Math.floor(videoPlayer.currentTime);
+        const res = await fetch('/api/screenshots', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game: currentGameSlug, dataUrl, videoTime }),
+        });
+        if (!res.ok) throw new Error('Upload failed');
+        flashScreenshotSaved();
+        loadScreenshots();
+      } catch { alert('Screenshot failed (cross-origin restriction or upload error).'); }
+    }
+
+    function flashScreenshotSaved() {
+      const el = document.getElementById('screenshot-flash');
+      if (!el) return;
+      el.classList.add('visible');
+      setTimeout(() => el.classList.remove('visible'), 1800);
+    }
+
+    // ══════════════════════════════════════════
+    //  SOURCES — load, render, switch, modal
+    // ══════════════════════════════════════════
+
+    // ── Screenshots ───────────────────────────────────────────────────
+    async function loadScreenshots() {
+      if (!currentGameSlug) return;
+      try {
+        const res = await fetch(`/api/screenshots?game=${encodeURIComponent(currentGameSlug)}`);
+        const list = res.ok ? await res.json() : [];
+        renderScreenshots(list);
+      } catch { renderScreenshots([]); }
+    }
+
+    function renderScreenshots(list) {
+      const section = document.getElementById('screenshots-section');
+      const grid    = document.getElementById('screenshots-grid');
+      const count   = document.getElementById('screenshots-count');
+      if (!section || !grid || !count) return;
+      count.textContent = list.length ? `(${list.length})` : '';
+      if (!list.length) { grid.innerHTML = '<p style="font-size:.75rem;color:var(--ink-4);margin:0">No screenshots yet. Press <kbd>Alt</kbd>+<kbd>S</kbd> while a video is playing.</p>'; return; }
+      grid.innerHTML = list.map(s => `
+        <div class="ss-thumb" data-filename="${s.filename}">
+          <img src="${s.url}" loading="lazy" alt="screenshot">
+          <button class="ss-del" title="Delete" data-filename="${s.filename}">✕</button>
+          <button class="ss-ins" title="Insert into notes" data-url="${s.url}" data-vt="${s.videoTime ?? ''}">→</button>
+          ${s.videoTime != null ? `<button class="ss-time" data-t="${s.videoTime}">${formatTime(s.videoTime)}</button>` : ''}
+        </div>
+      `).reverse().join('');
+      grid.querySelectorAll('.ss-del').forEach(btn => {
+        btn.addEventListener('click', async e => {
+          e.stopPropagation();
+          const fn = btn.dataset.filename;
+          await fetch(`/api/screenshots/${encodeURIComponent(currentGameSlug)}/${fn}`, { method: 'DELETE' });
+          loadScreenshots();
+        });
+      });
+      grid.querySelectorAll('.ss-time').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          videoPlayer.currentTime = Number(btn.dataset.t);
+          videoPlayer.play();
+          videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+      });
+      grid.querySelectorAll('.ss-ins').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          insertScreenshotIntoNotes(btn.dataset.url, btn.dataset.vt);
+        });
+      });
+      grid.querySelectorAll('.ss-thumb img').forEach(img => {
+        img.addEventListener('click', () => openScreenshotModal(img.src));
+      });
+    }
+
+    function insertScreenshotIntoNotes(url, videoTime) {
+      const targetId = lastFocusedNoteId || `n-${activeTab}`;
+      const textarea = document.getElementById(`ej-${targetId}`);
+      if (!textarea) return;
+      const wrapper = textarea.previousElementSibling;
+      const editorDiv = wrapper?.querySelector('.wysi-editor');
+      if (!editorDiv) return;
+
+      // Switch to the target tab so user sees the insertion
+      switchTab(targetId.replace(/^n-/, ''));
+
+      const timeAttr = videoTime ? ` title="${formatTime(Number(videoTime))}"` : '';
+      const imgHtml = `<img src="${url}" style="max-width:220px;border-radius:4px;margin:2px 4px 2px 0;vertical-align:middle"${timeAttr}>`;
+
+      const sel = window.getSelection();
+      const cursorInEditor = sel?.rangeCount && editorDiv.contains(sel.getRangeAt(0).commonAncestorContainer);
+      if (!cursorInEditor) {
+        editorDiv.focus();
+        const range = document.createRange();
+        range.selectNodeContents(editorDiv);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      document.execCommand('insertHTML', false, imgHtml);
+      scheduleSave();
+      broadcastNotesUpdate(targetId);
+    }
+
+    function openScreenshotModal(src) {
+      const modal = document.getElementById('ss-modal');
+      document.getElementById('ss-modal-img').src = src;
+      modal.classList.remove('hidden');
+      modal.focus();
+    }
+
+    document.getElementById('ss-modal').addEventListener('click', e => {
+      if (e.target === e.currentTarget || e.target.id === 'ss-modal-close') {
+        e.currentTarget.classList.add('hidden');
+        document.getElementById('ss-modal-img').src = '';
+      }
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !document.getElementById('ss-modal').classList.contains('hidden')) {
+        document.getElementById('ss-modal').classList.add('hidden');
+        document.getElementById('ss-modal-img').src = '';
+      }
+    });
+
+    async function loadSources() {
+      if (!currentGameSlug || !currentUser) { sources = []; renderSourceRail(); return; }
+      try {
+        const res = await fetch(`/api/prep-sources?game=${encodeURIComponent(currentGameSlug)}&user=${encodeURIComponent(currentUser)}`);
+        sources = res.ok ? await res.json() : [];
+      } catch { sources = []; }
+      renderSourceRail();
+    }
+
+    function sourceIcon(src) {
+      if (src.type === 'url') return src.embeddable === false ? '↗' : '🔗';
+      if (src.mime?.startsWith('video/')) return '▶';
+      if (src.mime?.startsWith('audio/')) return '♪';
+      if (src.mime?.startsWith('image/')) return '🖼';
+      return '📄';
+    }
+
+    function renderSourceRail() {
+      railReadingCount.textContent = `· ${sources.length}`;
+      if (!sources.length) {
+        railReadingItems.innerHTML = '<span style="font-size:11px;color:var(--ink-4);padding:4px;line-height:1.4">No sources added yet</span>';
+        return;
+      }
+      railReadingItems.innerHTML = '';
+      sources.forEach(src => {
+        const btn = document.createElement('button');
+        btn.className = 'source-item' + (src.id === activeSourceId ? ' active' : '');
+        btn.dataset.sourceId = src.id;
+        const canEdit   = currentRole === 'host' || currentUser === src.owner;
+        const canDelete = canEdit;
+        btn.innerHTML = `
+          <span class="source-icon" style="font-size:15px">${sourceIcon(src)}</span>
+          <div class="source-item-meta">
+            <div class="source-item-label">${escHtml(src.name)}</div>
+            <div class="source-item-kind">
+              <span class="kind-lbl" style="color:var(--ink-4)">${src.type === 'url' ? src.domain || 'URL' : (src.mime || 'FILE')}</span>
+            </div>
+          </div>
+          <div class="source-item-actions">
+            ${canEdit   ? `<button class="source-item-rename" data-ren-id="${src.id}" title="Rename">✎</button>` : ''}
+            ${canDelete ? `<button class="source-item-del"    data-del-id="${src.id}" title="Remove">✕</button>` : ''}
+          </div>`;
+        if (canEdit) {
+          btn.querySelector('.source-item-rename').addEventListener('click', (e) => {
+            e.stopPropagation();
+            startRenameSource(btn, src);
+          });
+        }
+        if (canDelete) {
+          btn.querySelector('.source-item-del').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await deleteSource(src.id);
+          });
+        }
+        btn.addEventListener('click', () => switchToSource(src.id));
+        railReadingItems.appendChild(btn);
+      });
+    }
+
+    // ── Image viewer state ────────────────────────────────────────────
+    let ivState = null;
+    let currentViewerCleanup = null;
+
+    function buildImageViewer(fileUrl) {
+      if (currentViewerCleanup) { currentViewerCleanup(); currentViewerCleanup = null; }
+      focalReading.innerHTML = '';
+
+      // Build toolbar using direct refs (avoids getElementById fragility)
+      const toolbar   = document.createElement('div');
+      toolbar.className = 'iv-toolbar';
+      const zoomOutBtn = Object.assign(document.createElement('button'), { className: 'btn ghost sm', textContent: '−' });
+      const zoomLabel  = Object.assign(document.createElement('span'),  { className: 'iv-zoom-label', textContent: '100%' });
+      const zoomInBtn  = Object.assign(document.createElement('button'), { className: 'btn ghost sm', textContent: '+' });
+      const zoomFitBtn = Object.assign(document.createElement('button'), { className: 'btn ghost sm', textContent: 'Fit' });
+      const spacer     = Object.assign(document.createElement('span'),  { style: 'flex:1' });
+      const selectBtn  = Object.assign(document.createElement('button'), {
+        className: 'btn ghost sm iv-select-btn',
+        textContent: '✂ Select to quote',
+        title: 'Draw a selection, then press Q to OCR just that region',
+      });
+      [zoomOutBtn, zoomLabel, zoomInBtn, zoomFitBtn, spacer, selectBtn].forEach(el => toolbar.appendChild(el));
+      focalReading.appendChild(toolbar);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'iv-wrap';
+      focalReading.appendChild(wrap);
+
+      const img = document.createElement('img');
+      img.className = 'iv-img'; img.crossOrigin = 'anonymous'; img.src = fileUrl;
+      wrap.appendChild(img);
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'iv-canvas';
+      wrap.appendChild(canvas);
+
+      const st = { zoom: 1, panX: 0, panY: 0, mode: 'pan',
+        selStart: null, selEnd: null, selection: null,
+        naturalW: 0, naturalH: 0,
+        dragMode: null, dragStart: null, panAtDrag: null, img };
+      ivState = st;
+
+      // ── coordinate helpers ──────────────────────────────────────────
+      function syncCanvas() {
+        const r = wrap.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) { canvas.width = Math.round(r.width); canvas.height = Math.round(r.height); }
+      }
+      function pos(e) {
+        const r = canvas.getBoundingClientRect();
+        return { cx: e.clientX - r.left, cy: e.clientY - r.top };
+      }
+      function toImg(cx, cy)  { return { ix: (cx - st.panX) / st.zoom, iy: (cy - st.panY) / st.zoom }; }
+      function toVP(ix, iy)   { return { cx: ix * st.zoom + st.panX,   cy: iy * st.zoom + st.panY   }; }
+      function clamp(ix, iy)  { return { ix: Math.max(0, Math.min(st.naturalW || 1e9, ix)), iy: Math.max(0, Math.min(st.naturalH || 1e9, iy)) }; }
+
+      function applyTransform() {
+        img.style.transform = `translate(${st.panX}px,${st.panY}px) scale(${st.zoom})`;
+        zoomLabel.textContent = Math.round(st.zoom * 100) + '%';
+      }
+
+      function fitToView() {
+        syncCanvas();
+        if (!st.naturalW || !canvas.width) return;
+        st.zoom = Math.min(canvas.width / st.naturalW, canvas.height / st.naturalH, 1);
+        st.panX = (canvas.width  - st.naturalW * st.zoom) / 2;
+        st.panY = (canvas.height - st.naturalH * st.zoom) / 2;
+        applyTransform(); drawOverlay();
+      }
+
+      function drawOverlay() {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const end = st.selEnd || st.selStart;
+        if (!st.selStart || !end) return;
+        const s = toVP(st.selStart.ix, st.selStart.iy);
+        const e = toVP(end.ix, end.iy);
+        const rx = Math.min(s.cx, e.cx), ry = Math.min(s.cy, e.cy);
+        const rw = Math.abs(e.cx - s.cx), rh = Math.abs(e.cy - s.cy);
+        ctx.fillStyle = 'rgba(0,0,0,.5)';
+        ctx.fillRect(0, 0, canvas.width, ry);
+        ctx.fillRect(0, ry + rh, canvas.width, canvas.height - ry - rh);
+        ctx.fillRect(0, ry, rx, rh);
+        ctx.fillRect(rx + rw, ry, canvas.width - rx - rw, rh);
+        ctx.strokeStyle = '#f4b740'; ctx.lineWidth = 2; ctx.setLineDash([]);
+        ctx.strokeRect(rx, ry, rw, rh);
+        ctx.fillStyle = '#f4b740';
+        [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]].forEach(([hx,hy]) => ctx.fillRect(hx-4,hy-4,8,8));
+      }
+
+      function showQuoteBadge() {
+        let badge = wrap.querySelector('.iv-quote-badge');
+        if (!badge) { badge = document.createElement('div'); badge.className = 'iv-quote-badge'; wrap.appendChild(badge); }
+        const bBtn = document.createElement('button');
+        bBtn.className = 'btn primary sm'; bBtn.innerHTML = '❝ Quote selection <kbd>Q</kbd>';
+        bBtn.addEventListener('click', openQuoteComposer);
+        badge.innerHTML = ''; badge.appendChild(bBtn);
+        if (st.selection) {
+          const e = toVP(st.selection.x2, st.selection.y2);
+          badge.style.left = Math.min(Math.max(4, e.cx - 80), canvas.width - 200) + 'px';
+          badge.style.top  = Math.min(e.cy + 8, canvas.height - 44) + 'px';
+        }
+      }
+
+      function removeQuoteBadge() { wrap.querySelector('.iv-quote-badge')?.remove(); }
+
+      // ── mouse handlers ─────────────────────────────────────────────
+      function onDown(e) {
+        if (e.button !== 0) return; e.preventDefault();
+        const { cx, cy } = pos(e);
+        if (st.mode === 'select') {
+          st.dragMode = 'select';
+          st.selStart = clamp(toImg(cx, cy).ix, toImg(cx, cy).iy);
+          st.selEnd = null; st.selection = null;
+          removeQuoteBadge();
+        } else {
+          st.dragMode = 'pan';
+          st.dragStart = { cx, cy }; st.panAtDrag = { x: st.panX, y: st.panY };
+          canvas.classList.add('panning');
+        }
+      }
+
+      function onMove(e) {
+        if (!st.dragMode) return;
+        const { cx, cy } = pos(e);
+        if (st.dragMode === 'select') {
+          st.selEnd = clamp(toImg(cx, cy).ix, toImg(cx, cy).iy);
+          drawOverlay();
+        } else {
+          st.panX = st.panAtDrag.x + (cx - st.dragStart.cx);
+          st.panY = st.panAtDrag.y + (cy - st.dragStart.cy);
+          applyTransform(); drawOverlay();
+        }
+      }
+
+      function onUp() {
+        if (!st.dragMode) return;
+        if (st.dragMode === 'select' && st.selStart && st.selEnd) {
+          const a = clamp(st.selStart.ix, st.selStart.iy);
+          const b = clamp(st.selEnd.ix,   st.selEnd.iy);
+          if (Math.abs(b.ix - a.ix) > 4 && Math.abs(b.iy - a.iy) > 4) {
+            st.selection = { x1: Math.min(a.ix,b.ix), y1: Math.min(a.iy,b.iy), x2: Math.max(a.ix,b.ix), y2: Math.max(a.iy,b.iy) };
+            showQuoteBadge();
+          }
+        }
+        st.dragMode = null;
+        canvas.classList.remove('panning');
+      }
+
+      function onWheel(e) {
+        e.preventDefault();
+        const { cx, cy } = pos(e);
+        const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
+        const nz = Math.max(0.1, Math.min(10, st.zoom * factor));
+        st.panX = cx - (cx - st.panX) * (nz / st.zoom);
+        st.panY = cy - (cy - st.panY) * (nz / st.zoom);
+        st.zoom = nz; applyTransform(); drawOverlay();
+      }
+
+      canvas.addEventListener('mousedown', onDown);
+      window.addEventListener('mousemove', onMove);   // window so drag works outside canvas bounds
+      window.addEventListener('mouseup',   onUp);
+      canvas.addEventListener('wheel', onWheel, { passive: false });
+
+      // ── toolbar buttons ─────────────────────────────────────────────
+      function zoomBy(factor) {
+        const cx = canvas.width/2, cy = canvas.height/2;
+        const nz = Math.max(0.1, Math.min(10, st.zoom * factor));
+        st.panX = cx - (cx - st.panX) * (nz / st.zoom);
+        st.panY = cy - (cy - st.panY) * (nz / st.zoom);
+        st.zoom = nz; applyTransform(); drawOverlay();
+      }
+      zoomInBtn .addEventListener('click', () => zoomBy(1.25));
+      zoomOutBtn.addEventListener('click', () => zoomBy(1/1.25));
+      zoomFitBtn.addEventListener('click', fitToView);
+      selectBtn .addEventListener('click', () => {
+        st.mode = st.mode === 'select' ? 'pan' : 'select';
+        selectBtn.classList.toggle('sel-active', st.mode === 'select');
+        canvas.classList.toggle('select-mode',   st.mode === 'select');
+        if (st.mode === 'pan') { st.selStart = null; st.selEnd = null; st.selection = null; drawOverlay(); removeQuoteBadge(); }
+      });
+
+      // ── init ────────────────────────────────────────────────────────
+      img.onload = () => { st.naturalW = img.naturalWidth; st.naturalH = img.naturalHeight; syncCanvas(); fitToView(); };
+      const ro = new ResizeObserver(() => { syncCanvas(); if (st.naturalW) fitToView(); });
+      ro.observe(wrap);
+      requestAnimationFrame(() => { syncCanvas(); if (st.naturalW) fitToView(); });
+
+      currentViewerCleanup = () => {
+        canvas.removeEventListener('mousedown', onDown);
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup',   onUp);
+        canvas.removeEventListener('wheel', onWheel);
+        ro.disconnect(); ivState = null;
+      };
+    }
+
+    async function getImageBase64ForOcr(src) {
+      // If there's an active selection, crop to it
+      if (ivState?.selection) {
+        const { x1, y1, x2, y2 } = ivState.selection;
+        const w = Math.round(x2 - x1), h = Math.round(y2 - y1);
+        if (w > 0 && h > 0 && ivState.img) {
+          const oc = document.createElement('canvas');
+          oc.width = w; oc.height = h;
+          oc.getContext('2d').drawImage(ivState.img, Math.round(x1), Math.round(y1), w, h, 0, 0, w, h);
+          return oc.toDataURL('image/jpeg', 0.95).replace(/^data:image\/jpeg;base64,/, '');
+        }
+      }
+      // Fall back to full image
+      const fileUrl = `/api/prep-sources/file/${encodeURIComponent(currentGameSlug)}/${encodeURIComponent(src.filename)}`;
+      const blob = await (await fetch(fileUrl)).blob();
+      return blobToBase64(blob);
+    }
+
+    function switchToSource(id) {
+      const src = sources.find(s => s.id === id);
+      if (!src) return;
+      activeSourceId = id;
+      renderSourceRail();
+      document.getElementById('focal-title').textContent = src.name;
+      document.getElementById('focal-meta').textContent  = src.type === 'url' ? src.domain : (src.mime || 'file');
+
+      if (src.mime?.startsWith('video/')) {
+        if (currentViewerCleanup) { currentViewerCleanup(); currentViewerCleanup = null; }
+        focalReading.classList.remove('active');
+        focalReading.innerHTML = '';
+        focalVideo.style.display = '';
+        videoPlayer.src = `/api/prep-sources/file/${encodeURIComponent(currentGameSlug)}/${encodeURIComponent(src.filename)}`;
+        return;
+      }
+
+      focalVideo.style.display = 'none';
+      focalReading.classList.add('active');
+
+      if (src.type === 'url') {
+        if (src.embeddable === false) {
+          focalReading.innerHTML = `
+            <div class="reading-url-card">
+              <div class="reading-url-domain">${escHtml(src.domain || '')}</div>
+              <div class="reading-url-title">${escHtml(src.name)}</div>
+              ${src.desc ? `<div class="reading-url-desc">${escHtml(src.desc)}</div>` : ''}
+              <p style="margin-top:8px;font-size:12px;color:var(--ink-4)">This site cannot be previewed here.</p>
+              <a class="reading-url-open" href="${escHtml(src.url)}" target="_blank" rel="noopener">Open in new tab ↗</a>
+            </div>`;
+        } else {
+          focalReading.innerHTML = `
+            <div class="reading-url-card">
+              <div class="reading-url-domain">${escHtml(src.domain || '')}</div>
+              <div class="reading-url-title">${escHtml(src.name)}</div>
+              ${src.desc ? `<div class="reading-url-desc">${escHtml(src.desc)}</div>` : ''}
+              <a class="reading-url-open" href="${escHtml(src.url)}" target="_blank" rel="noopener">Open in new tab ↗</a>
+            </div>
+            <iframe src="${escHtml(src.url)}" style="flex:1;min-height:460px;border:none;border-radius:8px;background:var(--bg-2)"
+              sandbox="allow-scripts allow-same-origin allow-forms" loading="lazy"
+              onerror="this.style.display='none'"></iframe>`;
+        }
+      } else if (src.mime?.startsWith('image/')) {
+        const fileUrl = `/api/prep-sources/file/${encodeURIComponent(currentGameSlug)}/${encodeURIComponent(src.filename)}`;
+        buildImageViewer(fileUrl);
+      } else if (src.mime === 'application/pdf') {
+        const fileUrl = `/api/prep-sources/file/${encodeURIComponent(currentGameSlug)}/${encodeURIComponent(src.filename)}`;
+        focalReading.innerHTML = `<div class="reading-pdf-wrap"><iframe src="${fileUrl}"></iframe></div>`;
+      } else {
+        focalReading.innerHTML = `<div class="reading-url-card">
+          <div class="reading-url-title">${escHtml(src.name)}</div>
+          <a class="reading-url-open" href="/api/prep-sources/file/${encodeURIComponent(currentGameSlug)}/${encodeURIComponent(src.filename)}" target="_blank">Download ↗</a>
+        </div>`;
+      }
+    }
+
+    function resetFocalPane() {
+      if (currentViewerCleanup) { currentViewerCleanup(); currentViewerCleanup = null; }
+      activeSourceId = null;
+      videoPlayer.pause();
+      videoPlayer.removeAttribute('src');
+      videoPlayer.load();
+      renderSourceRail();
+      focalVideo.style.display = 'none';
+      focalReading.classList.remove('active');
+      focalReading.innerHTML = '';
+      document.getElementById('focal-title').textContent = 'No source selected';
+      document.getElementById('focal-meta').textContent  = 'Add a source to get started';
+    }
+
+    async function deleteSource(id) {
+      if (!currentGameSlug) return;
+      await fetch(`/api/prep-sources/${encodeURIComponent(currentGameSlug)}/${id}?user=${encodeURIComponent(currentUser || '')}&role=${encodeURIComponent(currentRole || '')}`, { method: 'DELETE' });
+      if (activeSourceId === id) resetFocalPane();
+      await loadSources();
+    }
+
+    function startRenameSource(btn, src) {
+      const labelEl = btn.querySelector('.source-item-label');
+      const original = src.name;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'source-rename-input';
+      input.value = original;
+      labelEl.replaceWith(input);
+      input.focus(); input.select();
+
+      async function commit() {
+        const newName = input.value.trim();
+        input.replaceWith(labelEl);
+        if (!newName || newName === original) return;
+        labelEl.textContent = newName;
+        await renameSource(src.id, newName);
+      }
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+        if (e.key === 'Escape') { input.replaceWith(labelEl); }
+      });
+    }
+
+    async function renameSource(id, name) {
+      if (!currentGameSlug) return;
+      try {
+        await fetch(`/api/prep-sources/${encodeURIComponent(currentGameSlug)}/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, user: currentUser || '', role: currentRole || '' }),
+        });
+        // Update in local sources array so focal header stays in sync
+        const s = sources.find(x => x.id === id);
+        if (s) {
+          s.name = name;
+          if (activeSourceId === id) document.getElementById('focal-title').textContent = name;
+        }
+      } catch (e) { console.warn('rename failed:', e.message); }
+    }
+
+    // ── Source modal ──────────────────────────────────────────────────
+
+    function openSourceModal() {
+      sourceModal.classList.remove('hidden');
+      document.getElementById('sm-file-msg').textContent = '';
+      document.getElementById('sm-url-msg').textContent  = '';
+      document.getElementById('sm-url-input').value = '';
+      setSmTab('file');
+    }
+
+    function closeSourceModal() { sourceModal.classList.add('hidden'); }
+
+    function setSmTab(tab) {
+      document.querySelectorAll('.sm-tab').forEach(t => t.classList.toggle('active', t.dataset.smTab === tab));
+      document.querySelectorAll('.sm-panel').forEach(p => p.classList.toggle('active', p.id === `sm-panel-${tab}`));
+    }
+
+    addSourceBtn.addEventListener('click', openSourceModal);
+    document.getElementById('source-modal-close').addEventListener('click', closeSourceModal);
+    sourceModal.addEventListener('click', (e) => { if (e.target === sourceModal) closeSourceModal(); });
+
+    document.querySelectorAll('.sm-tab').forEach(t => t.addEventListener('click', () => setSmTab(t.dataset.smTab)));
+
+    // File upload
+    const dropZone       = document.getElementById('drop-zone');
+    const sourceFileInput = document.getElementById('source-file-input');
+
+    dropZone.addEventListener('click', () => sourceFileInput.click());
+    dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') sourceFileInput.click(); });
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) uploadSourceFile(file);
+    });
+    sourceFileInput.addEventListener('change', () => {
+      if (sourceFileInput.files[0]) uploadSourceFile(sourceFileInput.files[0]);
+      sourceFileInput.value = '';
+    });
+
+    async function uploadSourceFile(file) {
+      if (!currentGameSlug) {
+        setSmMsg('file', 'Please select an episode first.', 'err'); return;
+      }
+      if (file.size > 2 * 1024 * 1024 * 1024) {
+        setSmMsg('file', 'File too large (max 2 GB).', 'err'); return;
+      }
+      setSmMsg('file', 'Uploading…', '');
+      const meta = JSON.stringify({ user: currentUser || '', game: currentGameSlug, name: file.name, mime: file.type });
+      const metaBytes = new TextEncoder().encode(meta + '\n');
+      const fileBytes = new Uint8Array(await file.arrayBuffer());
+      const body = new Uint8Array(metaBytes.length + fileBytes.length);
+      body.set(metaBytes); body.set(fileBytes, metaBytes.length);
+      try {
+        const res = await fetch('/api/prep-sources/upload', { method: 'POST', body: body.buffer });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        setSmMsg('file', `✓ "${file.name}" added.`, 'ok');
+        await loadSources();
+        setTimeout(closeSourceModal, 900);
+      } catch (e) { setSmMsg('file', e.message, 'err'); }
+    }
+
+    // URL add
+    document.getElementById('sm-url-add-btn').addEventListener('click', addUrlSource);
+    document.getElementById('sm-url-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') addUrlSource(); });
+
+    async function addUrlSource() {
+      const url = document.getElementById('sm-url-input').value.trim();
+      if (!url) return;
+      if (!currentGameSlug) { setSmMsg('url', 'Please select an episode first.', 'err'); return; }
+      setSmMsg('url', 'Fetching…', '');
+      try {
+        const res = await fetch('/api/prep-sources/url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: currentUser || '', game: currentGameSlug, url }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to add URL');
+        setSmMsg('url', `✓ "${data.name}" added.`, 'ok');
+        await loadSources();
+        setTimeout(closeSourceModal, 900);
+      } catch (e) { setSmMsg('url', e.message, 'err'); }
+    }
+
+    function setSmMsg(panel, msg, kind) {
+      const el = document.getElementById(`sm-${panel}-msg`);
+      el.textContent = msg;
+      el.className = 'sm-msg' + (kind ? ' ' + kind : '');
+    }
+
+    function escHtml(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Episode management ───────────────────────────────────────────
+    async function loadEpisodes() {
+      try {
+        const res = await fetch('/api/prep-notes/games');
+        const episodes = res.ok ? await res.json() : [];
+        episodeSelect.innerHTML = '<option value="">Select an episode…</option>';
+        episodes.forEach(ep => {
+          const o = document.createElement('option');
+          o.value = ep.slug; o.textContent = ep.title; o.dataset.title = ep.title;
+          episodeSelect.appendChild(o);
+        });
+        if (currentGameSlug && !Array.from(episodeSelect.options).some(o => o.value === currentGameSlug)) {
+          const o = document.createElement('option');
+          o.value = currentGameSlug; o.textContent = currentGameTitle; o.dataset.title = currentGameTitle;
+          episodeSelect.appendChild(o);
+        }
+        if (currentGameSlug) episodeSelect.value = currentGameSlug;
+      } catch (e) { console.error('loadEpisodes:', e); }
+    }
+
+    async function selectEpisode(slug, title) {
+      currentGameId = slug; currentGameSlug = slug; currentGameTitle = title;
+      resetFocalPane();
+      document.getElementById('focal-title').textContent = title;
+      document.getElementById('focal-meta').textContent  = 'Add a source to get started';
+
+      fetch('/api/current-game', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game: slug, title }),
+      }).catch(() => {});
+
+      if (db) { loadNotes(); }
+      else { const t = setInterval(() => { if (db) { clearInterval(t); loadNotes(); } }, 100); }
+
+      loadSources();
+      loadScreenshots();
+      joinPrepRoom();
+    }
+
+    episodeSelect.addEventListener('change', () => {
+      const opt  = episodeSelect.options[episodeSelect.selectedIndex];
+      const slug = opt.value;
+      if (!slug) {
+        currentGameId = null; currentGameTitle = null; currentGameSlug = null;
+        resetFocalPane();
+        sources = []; renderSourceRail();
+        setSaveStatus('No episode selected', 'idle');
+        return;
+      }
+      selectEpisode(slug, opt.dataset.title || opt.textContent);
+    });
+
+    newEpisodeBtn.addEventListener('click', async () => {
+      const title = prompt('Episode title:');
+      if (!title || !title.trim()) return;
+      const trimmed = title.trim();
+      const slug = gameToSlug(trimmed);
+      const o = document.createElement('option');
+      o.value = slug; o.textContent = trimmed; o.dataset.title = trimmed;
+      episodeSelect.appendChild(o);
+      episodeSelect.value = slug;
+      await selectEpisode(slug, trimmed);
+    });
+
+    // ── Export / Copy ─────────────────────────────────────────────────
+    exportJsonBtn.addEventListener('click', () => {
+      const notes = collectNotes();
+      const blob  = new Blob([JSON.stringify({ gameId: currentGameId, gameTitle: currentGameTitle, exportedAt: new Date().toISOString(), notes }, null, 2)], { type: 'application/json' });
+      const a     = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: (currentGameTitle||'game').replace(/[^a-zA-Z0-9]/g,'_')+'_notes.json' });
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    copyTextBtn.addEventListener('click', () => {
+      const notes = collectNotes();
+      const text  = editorDataToText(notes['n-shared'])?.trim() || '';
+      navigator.clipboard.writeText(text).then(() => {
+        copyTextBtn.textContent = '✓ Copied!';
+        setTimeout(() => { copyTextBtn.textContent = 'Copy Text'; }, 2000);
+      });
+    });
+
+    // ── Quote Composer ────────────────────────────────────────────────
+    async function openQuoteComposer() {
+      quoteMode = true;
+      quoteComposer.classList.remove('hidden');
+      qcText.value = ''; qcText.style.opacity = '.6';
+      qcBadge.className = 'qc-badge loading';
+      qcBadge.innerHTML = '<span class="prep-spinner"></span> READING HIGHLIGHT…';
+      qcSkeleton.style.display = 'flex';
+
+      try {
+        let imageBase64, mime;
+
+        const activeSrc = activeSourceId ? sources.find(s => s.id === activeSourceId) : null;
+        if (activeSrc?.type === 'file' && activeSrc.mime?.startsWith('image/')) {
+          imageBase64 = await getImageBase64ForOcr(activeSrc);
+          mime = 'image/jpeg';
+        } else if (activeSrc?.mime?.startsWith('video/') && videoPlayer.src && videoPlayer.readyState >= 2) {
+          // Capture current video frame as JPEG
+          const canvas = document.createElement('canvas');
+          canvas.width  = videoPlayer.videoWidth;
+          canvas.height = videoPlayer.videoHeight;
+          canvas.getContext('2d').drawImage(videoPlayer, 0, 0);
+          imageBase64 = canvas.toDataURL('image/jpeg', 0.92).replace(/^data:image\/jpeg;base64,/, '');
+          mime = 'image/jpeg';
+        } else {
+          showOcrManual('Open an image source or pause the video on a frame with text, then press Q.');
+          return;
+        }
+
+        const res = await fetch('/api/ocr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64, mime }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'OCR failed');
+
+        qcText.value = data.text || '';
+        qcText.style.opacity = '1';
+        qcBadge.className = 'qc-badge done';
+        qcBadge.textContent = data.confidence != null
+          ? `OCR · ${data.confidence}% · edit if needed`
+          : 'OCR complete · edit if needed';
+        qcSkeleton.style.display = 'none';
+        if (!qcText.value) showOcrManual('No text detected — type it manually.');
+      } catch (e) {
+        showOcrManual(e.message);
+      }
+    }
+
+    function showOcrManual(hint) {
+      qcText.value = '';
+      qcText.style.opacity = '1';
+      qcBadge.className = 'qc-badge';
+      qcBadge.textContent = hint;
+      qcSkeleton.style.display = 'none';
+      qcText.focus();
+    }
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result.replace(/^data:[^;]+;base64,/, ''));
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function closeQuoteComposer() {
+      quoteMode = false;
+      quoteComposer.classList.add('hidden');
+    }
+
+    function addQuoteToNotes() {
+      const text    = qcText.value.trim();
+      const speaker = document.getElementById('qc-speaker').value.trim();
+      const context = document.getElementById('qc-context').value.trim();
+      const target  = document.getElementById('qc-target').value;
+      if (!text) { qcText.focus(); return; }
+      const fieldId = `n-${target}`;
+      const el = document.getElementById(`ej-${fieldId}`);
+      if (!el) { closeQuoteComposer(); return; }
+      const caption = [speaker, context].filter(Boolean).join(' · ');
+      const quoteHtml = `<blockquote><p>${text}</p>${caption ? `<cite>— ${caption}</cite>` : ''}</blockquote>`;
+      Wysi.setContent(el, (el.value || '') + quoteHtml);
+      scheduleSave();
+      closeQuoteComposer();
+      switchTab(target);
+    }
+
+    document.getElementById('qc-close-btn').addEventListener('click',  closeQuoteComposer);
+    document.getElementById('qc-cancel-btn').addEventListener('click', closeQuoteComposer);
+    document.getElementById('qc-add-btn').addEventListener('click',    addQuoteToNotes);
+    document.getElementById('qc-context').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addQuoteToNotes(); } });
+
+    // ── Keyboard shortcuts ────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      const inForm = ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)
+                  || !!document.activeElement.closest('.wysi-editor');
+
+      if (e.key === 'Escape' && quoteMode) { closeQuoteComposer(); return; }
+      if (e.key === 'Enter'  && quoteMode && !inForm) { e.preventDefault(); addQuoteToNotes(); return; }
+
+      if (e.code === 'KeyT' && e.altKey)  { e.preventDefault(); insertTimestamp(); return; }
+      if (e.code === 'KeyS' && e.altKey)  { e.preventDefault(); captureFrame(); return; }
+      if (e.key === 't' && !inForm)   { e.preventDefault(); insertTimestamp(); return; }
+      if (e.key === 'q' && !inForm)   { e.preventDefault(); openQuoteComposer(); return; }
+
+      if (inForm) return;
+
+      switch (e.key) {
+        case 's': e.preventDefault(); captureFrame(); break;
+        case 'ArrowLeft':  e.preventDefault(); videoPlayer.currentTime -= e.shiftKey ? 5 : 10; break;
+        case 'ArrowRight': e.preventDefault(); videoPlayer.currentTime += e.shiftKey ? 5 : 10; break;
+        case ' ':          e.preventDefault(); videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause(); break;
+      }
+    });
+
+    // ── Login ─────────────────────────────────────────────────────────
+    const loginOverlay   = document.getElementById('login-overlay');
+    const loginNameInput = document.getElementById('login-name');
+    const loginPassInput = document.getElementById('login-password');
+    const loginBtn       = document.getElementById('login-btn');
+    const loginError     = document.getElementById('login-error');
+    const userBadge      = document.getElementById('user-badge');
+    const userBadgeName  = document.getElementById('user-badge-name');
+    const switchUserBtn  = document.getElementById('switch-user-btn');
+
+    function applyUser(name) {
+      currentUser = name;
+      currentRole = localStorage.getItem('podcast-studio-role') || 'guest';
+      localStorage.setItem('podcast-studio-username', name);
+      userBadgeName.textContent = name;
+      loginOverlay.classList.add('hidden');
+      switchTab(activeTab);
+      connectPrepWs();
+      if (currentGameId) loadNotes();
+    }
+
+    function showLoginOverlay() {
+      loginNameInput.value = localStorage.getItem('podcast-studio-username') || '';
+      loginPassInput.value = '';
+      loginError.classList.add('hidden');
+      loginOverlay.classList.remove('hidden');
+      (loginNameInput.value ? loginPassInput : loginNameInput).focus();
+    }
+
+    async function attemptLogin() {
+      const name = loginNameInput.value.trim();
+      const pass = loginPassInput.value;
+      if (!name) { loginNameInput.focus(); return; }
+      if (!pass)  { loginPassInput.focus(); return; }
+      loginBtn.disabled = true; loginBtn.textContent = 'Checking…';
+      try {
+        const res  = await fetch('/api/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pass }) });
+        const data = await res.json();
+        if (data.role) { localStorage.setItem('podcast-studio-role', data.role); applyUser(name); }
+        else { loginError.classList.remove('hidden'); loginPassInput.value = ''; loginPassInput.focus(); }
+      } catch {
+        loginError.textContent = 'Could not reach server.'; loginError.classList.remove('hidden');
+      } finally {
+        loginBtn.disabled = false; loginBtn.textContent = 'Enter';
+      }
+    }
+
+    loginBtn.addEventListener('click', attemptLogin);
+    loginPassInput.addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
+    loginNameInput.addEventListener('keydown', e => { if (e.key === 'Enter') loginPassInput.focus(); });
+    switchUserBtn.addEventListener('click', showLoginOverlay);
+
+    // ── Mobile: source rail toggle ────────────────────────────────────
+    document.getElementById('source-rail-toggle').addEventListener('click', () => {
+      document.getElementById('source-rail').classList.toggle('rail-expanded');
+    });
+
+    // Keep mobile count label in sync with reading count
+    const mobileCountEl = document.getElementById('source-rail-mobile-count');
+    const readingCountEl = document.getElementById('rail-reading-count');
+    if (mobileCountEl && readingCountEl) {
+      new MutationObserver(() => {
+        const n = sources.length;
+        mobileCountEl.textContent = n > 0 ? `${n} source${n !== 1 ? 's' : ''}` : '';
+      }).observe(readingCountEl, { childList: true, characterData: true, subtree: true });
+    }
+
+    // ── Mobile: focal pane pin toggle ─────────────────────────────────
+    document.getElementById('focal-pin-btn').addEventListener('click', () => {
+      const pane = document.getElementById('focal-pane');
+      const btn  = document.getElementById('focal-pin-btn');
+      const pinned = pane.classList.toggle('focal-pinned');
+      btn.textContent = pinned ? '⊙ Unpin' : '⊙ Pin';
+      btn.title = pinned ? 'Unpin video' : 'Pin video to top while scrolling';
+    });
+
+    // ── Init ──────────────────────────────────────────────────────────
+    initDB();
+    loadEpisodes();
+    switchTab('shared');
+    setSaveStatus('No episode selected', 'idle');
+
+    if (currentUser) { applyUser(currentUser); }
+    else { showLoginOverlay(); }
+
+  });
+  </script>
+</body>
+</html>

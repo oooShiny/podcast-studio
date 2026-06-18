@@ -1,0 +1,3921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podcast Studio</title>
+    <link rel="icon" type="image/png" href="/favicon/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Podcast Studio" />
+    <link rel="manifest" href="/favicon/site.webmanifest" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #024;
+    --surface: #001327;
+    --surface-2: #024;
+    --border: #2a2a38;
+    --text: #e8e6f0;
+    --text-dim: #8a879a;
+    --accent: #ef4a52;
+    --accent-glow: rgba(239, 74, 82, 0.25);
+    --green: #34d399;
+    --green-glow: rgba(52, 211, 153, 0.2);
+    --amber: #fbbf24;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Lobby ── */
+  .lobby {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  .lobby-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3rem;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .lobby-logo {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+
+  .lobby-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+
+  .lobby-sub {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+  }
+
+  .field {
+    margin-bottom: 1.2rem;
+    text-align: left;
+  }
+
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 0.45rem;
+  }
+
+  .field input, .field select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.6rem;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    width: 100%;
+    margin-top: 0.8rem;
+  }
+
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-icon {
+      height: 1em;
+      width: 1em
+  }
+  /* ── Studio ── */
+  .studio { display: none; height: 100vh; flex-direction: column; }
+  .studio.active { display: flex; }
+
+  .studio-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .studio-brand {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .studio-room {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    background: var(--surface-2);
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+  }
+
+  .studio-timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--text-dim);
+  }
+
+  .studio-timer.recording { color: var(--accent); }
+
+  .rec-indicator {
+    color: var(--accent);
+    font-size: 0.8rem;
+    margin-right: 0.4rem;
+    animation: pulse-record 1.5s ease-in-out infinite;
+  }
+
+  /* ── Studio Body (main + sidebar) ── */
+  .studio-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .studio-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* ── Participant Grid ── */
+  @font-face {
+    font-family: 'Scoreboard';
+    src: url('/fonts/scoreboard.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
+  .grid-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    overflow: hidden;
+  }
+  .episode-banner {
+    font-family: 'Scoreboard', monospace;
+    text-align: center;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background: var(--surface);
+    color: #c5ced8;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    display: none;
+    z-index: 2;
+  }
+
+  .episode-banner.active { display: block; }
+
+  .episode-banner-top {
+    font-size: 3.5rem;
+    margin-bottom: 0.75rem;
+    border-radius: 6px 6px 0 0;
+  }
+
+  .episode-banner-bottom {
+    font-size: 3.3rem;
+    margin-top: 0.75rem;
+    border-radius: 0 0 6px 6px;
+  }
+
+  .participant-grid {
+    display: grid;
+    gap: 1rem;
+    width: 100%;
+    max-width: 1000px;
+    max-height: 100%;
+  }
+
+  .participant-grid[data-count="1"] { grid-template-columns: 1fr; max-width: 500px; }
+  .participant-grid[data-count="2"] { grid-template-columns: 1fr 1fr; }
+  .participant-grid[data-count="3"] { grid-template-columns: 1fr 1fr; }
+  .participant-grid[data-count="4"] { grid-template-columns: 1fr 1fr; }
+
+  .participant-tile {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    aspect-ratio: 16 / 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .participant-tile.speaking {
+    border-color: var(--green);
+    box-shadow: 0 0 20px var(--green-glow);
+  }
+
+  .participant-tile video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+  }
+
+  .participant-tile.no-video video { display: none; }
+
+  /* Mirror local video so it feels natural */
+  .participant-tile.local-tile video { transform: scaleX(-1); }
+
+  /* Hide avatar when video is active */
+  .participant-tile:not(.no-video) .participant-avatar { display: none; }
+
+  /* Show name/meter on hover only when video is active */
+  .participant-tile:not(.no-video) .participant-name,
+  .participant-tile:not(.no-video) .audio-meter {
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .participant-tile:not(.no-video):hover .participant-name,
+  .participant-tile:not(.no-video):hover .audio-meter {
+    opacity: 1;
+  }
+
+  .participant-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    z-index: 1;
+  }
+
+  .participant-name {
+    position: absolute;
+    bottom: 0.6rem;
+    left: 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(0,0,0,0.6);
+    padding: 0.25rem 0.6rem;
+    border-radius: 5px;
+    z-index: 2;
+  }
+
+  .participant-name .you-badge {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-left: 0.3rem;
+  }
+
+  /* Audio level meter */
+  .audio-meter {
+    position: absolute;
+    bottom: 0.6rem;
+    right: 0.8rem;
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    height: 20px;
+    z-index: 2;
+  }
+
+  .meter-bar {
+    width: 3px;
+    background: var(--green);
+    border-radius: 2px;
+    transition: height 0.08s ease-out;
+    min-height: 3px;
+  }
+
+  /* ── Controls Bar ── */
+  .controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .ctrl-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .ctrl-btn:hover { border-color: var(--text-dim); }
+  .ctrl-btn.muted { border-color: var(--accent); }
+
+  .ctrl-btn.record-btn {
+    width: 56px;
+    height: 56px;
+    background: var(--accent);
+    border-color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .ctrl-btn.record-btn:hover {
+    box-shadow: 0 0 16px var(--accent-glow);
+  }
+
+  .ctrl-btn.record-btn.recording {
+    animation: pulse-record 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-record {
+    0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+    50% { box-shadow: 0 0 0 10px transparent; }
+  }
+
+  .ctrl-btn.leave-btn {
+    background: #dc2626;
+    border-color: #dc2626;
+  }
+
+  /* ── Status Toast ── */
+  .toast-area {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    animation: toast-in 0.3s ease;
+    max-width: 300px;
+  }
+
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.info { border-left: 3px solid var(--amber); }
+  .toast.error { border-left: 3px solid var(--accent); }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── Downloads Panel ── */
+  .downloads-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .downloads-panel.active { display: flex; }
+
+  .downloads-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 480px;
+    width: 90%;
+  }
+
+  .downloads-card h2 {
+    font-size: 1.3rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .downloads-card p {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .download-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--surface-2);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+  }
+
+  .download-item span {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  .download-item .dl-meta {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .download-item a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .download-item a:hover { text-decoration: underline; }
+
+  .downloads-close {
+    margin-top: 1rem;
+    width: 100%;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .sidebar { width: 320px; }
+  }
+
+  @media (max-width: 640px) {
+    .participant-grid[data-count="2"],
+    .participant-grid[data-count="3"],
+    .participant-grid[data-count="4"] {
+      grid-template-columns: 1fr;
+    }
+    .lobby-card { padding: 2rem 1.5rem; }
+    .studio-body { flex-direction: column; }
+    .sidebar {
+      width: 100%;
+      max-height: 50vh;
+      border-left: none;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Keep buttons perfectly round — prevent flex container from squishing them */
+    .ctrl-btn {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+    }
+    .ctrl-btn.record-btn {
+      width: 50px;
+      height: 50px;
+    }
+
+    /* Pin controls bar to bottom of viewport */
+    .controls-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      width: 100%;
+      justify-content: space-between;
+      gap: unset;
+      padding: 0.6rem 0.75rem;
+    }
+
+    /* Prevent grid area from hiding behind the fixed controls bar */
+    .studio-main {
+      padding-bottom: 1em;
+      flex: none;
+    }
+
+    /* When sidebar is open: collapse videos to a single horizontal strip */
+    .studio-body:has(.sidebar.active) .grid-area {
+      flex: none;
+      height: 120px;
+    }
+    .studio-body:has(.sidebar.active) .participant-grid {
+      display: flex !important;
+      flex-direction: row;
+      width: 100%;
+      max-width: 100%;
+      height: 100%;
+      gap: 0.4rem;
+    }
+    .studio-body:has(.sidebar.active) .participant-tile {
+      flex: 1 1 0;
+      min-width: 0;
+      aspect-ratio: unset;
+      height: 100%;
+    }
+    .studio-body:has(.sidebar.active) .sidebar {
+      flex: 1;
+      max-height: calc(100vh - 120px - 72px - 60px);
+      max-width: 100%;
+      width: 100%;
+    }
+    .studio-body:has(.sidebar.active) .episode-banner {
+      display: none !important;
+    }
+  }
+
+  /* ── Countdown Overlay ── */
+  .countdown-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .countdown-overlay.active { display: flex; }
+
+  .countdown-content { text-align: center; }
+
+  .countdown-label {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  .countdown-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    animation: countdown-pop 0.5s ease-out;
+  }
+
+  @keyframes countdown-pop {
+    0% { transform: scale(1.6); opacity: 0.3; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── Sync indicator in header ── */
+  .sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--green);
+    background: var(--green-glow);
+    padding: 0.25rem 0.6rem;
+    border-radius: 5px;
+    margin-left: 0.75rem;
+  }
+
+  .sync-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+
+  /* ── Upload Status Bar ── */
+  .upload-status {
+    display: none;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1.5rem;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .upload-status.active { display: flex; }
+
+  .upload-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--surface-2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .upload-progress-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  .upload-status .upload-label {
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+  }
+
+  .upload-status.error .upload-progress-fill {
+    background: var(--accent);
+  }
+
+  /* ── Server Files in Downloads ── */
+  .downloads-section-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 1.2rem 0 0.5rem;
+  }
+
+  .downloads-section-title:first-child { margin-top: 0; }
+
+  /* ── Production Sidebar ── */
+  .sidebar {
+    width: 380px;
+    min-width: 280px;
+    max-width: 70vw;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .sidebar.active { display: flex; }
+
+  .sidebar-resize-handle {
+    position: absolute;
+    top: 0;
+    left: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+  }
+
+  .sidebar-resize-handle::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 3px;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 40px;
+    background: var(--border);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .sidebar-resize-handle:hover::after,
+  .sidebar.resizing .sidebar-resize-handle::after {
+    opacity: 1;
+    background: var(--accent);
+  }
+
+  .sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .sidebar-tab {
+    flex: 1;
+    padding: 0.65rem 0.5rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar-tab:hover { color: var(--text); }
+  .sidebar-tab.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+
+  .sidebar-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .sidebar-panel.active { display: flex; }
+
+  .panel-section {
+    padding: 0.75rem 1rem;
+  }
+
+  .panel-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 0.4rem;
+  }
+
+  .panel-hint {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+
+  .panel-input {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+  }
+
+  .panel-input:focus { border-color: var(--accent); }
+
+  .panel-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    opacity: 0.6;
+  }
+
+  .btn-small {
+    padding: 0.4rem 0.75rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-small:hover { border-color: var(--text-dim); }
+
+  /* ── Soundboard ── */
+  .clip-upload-area {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .clip-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 0.5rem;
+  }
+
+  .clip-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.6rem;
+    margin: 0.25rem 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: border-color 0.2s;
+  }
+
+  .clip-item.playing { border-color: var(--green); }
+
+  .clip-play-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: filter 0.15s;
+  }
+
+  .clip-play-btn:hover { filter: brightness(1.15); }
+  .clip-item.playing .clip-play-btn { background: var(--green); }
+
+  .clip-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .clip-name {
+    font-size: 0.82rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .clip-duration {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .clip-progress {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 0.3rem;
+    overflow: hidden;
+  }
+
+  .clip-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  .clip-item.playing .clip-progress-fill { background: var(--green); }
+
+  .clip-remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.85rem;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+  }
+
+  .clip-remove-btn:hover { opacity: 1; }
+
+  .clip-queue-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .clip-queue-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .clip-queue-btn:disabled { opacity: 0.4; cursor: default; border-color: var(--border); color: var(--text-dim); }
+
+  .clip-queued-badge {
+    font-size: 0.62rem;
+    color: var(--amber);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .clip-volume {
+    width: 50px;
+    accent-color: var(--accent);
+  }
+
+  .clip-routing {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+.add-clip {
+    display: flex;
+    justify-content: space-around;
+    border: solid gray 1px;
+    padding: 0.25em;
+    border-radius: 0.5em;
+    margin-top: 0.25em;
+}
+  .route-option {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+  }
+
+  .route-option input { accent-color: var(--accent); }
+
+  .panel-select {
+    padding: 0.55rem 0.75rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .panel-select:focus { border-color: var(--accent); }
+
+  /* ── Opponent Scouting Card ── */
+  .opp-card { padding: 0.5rem 0; }
+
+  .opp-header {
+    padding: 0.6rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .opp-header h3 {
+    font-size: 1rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .opp-record {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .opp-section {
+    margin-bottom: 0.75rem;
+  }
+
+  .opp-section-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    margin-bottom: 0.3rem;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .opp-coaches {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+  }
+
+  .opp-coach-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  .opp-ranks {
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .opp-leaders {
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .opp-leaders strong { color: var(--text); }
+  .opp-leaders em {
+    font-style: normal;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+  }
+
+  .opp-finish {
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .opp-probowl {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .opp-draft { overflow-x: auto; }
+  .opp-draft table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+  }
+  .opp-draft th {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    text-align: left;
+    padding: 0.25rem 0.35rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .opp-draft td {
+    padding: 0.2rem 0.35rem;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+  }
+
+  /* ── Chat ── */
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .chat-bubble-meta {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 0.4rem;
+  }
+
+  .chat-bubble {
+    max-width: 85%;
+    padding: 0.45rem 0.7rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .chat-bubble.mine {
+    align-self: flex-end;
+    background: var(--accent);
+    color: #fff;
+    border-bottom-right-radius: 3px;
+  }
+
+  .chat-bubble.theirs {
+    align-self: flex-start;
+    background: var(--surface);
+    color: var(--text);
+    border-bottom-left-radius: 3px;
+  }
+
+  .chat-bubble-meta.mine { align-self: flex-end; }
+  .chat-bubble-meta.theirs { align-self: flex-start; }
+
+  .chat-input-row {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.6rem;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .chat-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
+    outline: none;
+  }
+
+  .chat-input:focus { border-color: var(--accent); }
+
+  .chat-send-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+    white-space: nowrap;
+  }
+
+  .chat-send-btn:hover { filter: brightness(1.15); }
+
+  /* ── Prep Notes Panel ── */
+  .pn-header {
+    padding: 0.6rem 0.75rem 0.4rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+  .pn-game-select {
+    flex: 1;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-size: 0.78rem;
+    padding: 0.3rem 0.45rem;
+    min-width: 0;
+  }
+  .pn-game-select:focus { outline: none; border-color: var(--accent); }
+  .pn-refresh-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.5rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .pn-refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .pn-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .pn-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.78rem;
+    padding: 0.45rem 0.75rem;
+    white-space: nowrap;
+  }
+  .pn-tab:hover { color: var(--text); }
+  .pn-tab.active { border-bottom-color: var(--accent); color: var(--text); }
+  .pn-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.6rem 0.75rem;
+  }
+  .pn-empty {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    padding: 0.5rem 0;
+    text-align: center;
+  }
+  .pn-blocks { font-size: 0.85rem; line-height: 1.55; color: var(--text); }
+  .pn-blocks h2 { font-size: 1rem; font-weight: 600; margin: 0.75rem 0 0.25rem; }
+  .pn-blocks h3 { font-size: 0.9rem; font-weight: 600; margin: 0.6rem 0 0.2rem; }
+  .pn-blocks p { margin: 0.2rem 0; }
+  .pn-blocks ul, .pn-blocks ol { margin: 0.2rem 0 0.2rem 1.1rem; padding: 0; }
+  .pn-blocks li { margin: 0.1rem 0; }
+
+  /* ── Studio screenshots panel ── */
+  .studio-ss-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 5px;
+  }
+  .studio-ss-thumb {
+    position: relative;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--surface-2);
+    aspect-ratio: 16/9;
+    cursor: zoom-in;
+  }
+  .studio-ss-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .studio-ss-time {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,.65);
+    color: #fff;
+    font-size: .6rem;
+    font-family: 'Courier New', monospace;
+    text-align: center;
+    padding: 2px 0;
+    opacity: 0;
+    transition: opacity .12s;
+  }
+  .studio-ss-thumb:hover .studio-ss-time { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ LOBBY ═══════ -->
+<div class="lobby" id="lobby">
+  <div class="lobby-card">
+    <h1 class="lobby-title">Podcast Studio</h1>
+    <p class="lobby-sub">Browser-based recording — no install needed</p>
+
+    <div class="field">
+      <label>Your Name</label>
+      <input type="text" id="username" placeholder="e.g. Andy" maxlength="30" />
+    </div>
+
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Enter session password" />
+    </div>
+
+    <div class="field">
+      <label>Microphone</label>
+      <select id="mic-select"><option>Loading…</option></select>
+    </div>
+
+    <div class="field">
+      <label>Speaker / Output</label>
+      <select id="speaker-select"><option value="">Default</option></select>
+    </div>
+
+    <div class="field">
+      <label>Camera (optional)</label>
+      <select id="cam-select"><option value="">No camera</option></select>
+    </div>
+
+    <div id="auth-error" style="color:var(--accent); font-size:0.85rem; margin-bottom:0.5rem; display:none;"></div>
+
+    <button class="btn btn-primary" id="join-btn" disabled>Join Studio</button>
+
+    <a href="/prep" style="display:block; margin-top:0.75rem; font-size:0.8rem; color:var(--text-dim); text-decoration:none; opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">Game Prep →</a>
+
+    <!-- Local recordings from previous sessions -->
+    <div id="lobby-recordings" style="display:none; margin-top:1.5rem; text-align:left;">
+      <div style="font-size:0.72rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-dim); margin-bottom:0.5rem;">Previous Recordings</div>
+      <div id="lobby-recordings-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ STUDIO ═══════ -->
+<div class="studio" id="studio">
+  <div class="studio-header">
+    <div class="studio-brand">● Podcast Studio</div>
+    <div class="studio-room" id="room-display"></div>
+    <div class="studio-timer" id="timer">
+      <span class="rec-indicator" id="rec-indicator" style="display:none;">●</span>
+      <span id="timer-text">00:00:00</span>
+    </div>
+  </div>
+
+  <div class="studio-body">
+    <div class="studio-main">
+      <div class="grid-area">
+        <div class="episode-banner episode-banner-top" id="episode-banner-top"></div>
+        <div class="participant-grid" id="participant-grid" data-count="1"></div>
+        <div class="episode-banner episode-banner-bottom" id="episode-banner-bottom"></div>
+      </div>
+
+      <div class="controls-bar">
+        <button class="ctrl-btn" id="settings-btn" title="Audio/Video Settings"><img class="btn-icon" src="icons/gear.webp"></button>
+        <button class="ctrl-btn" id="mic-toggle" title="Toggle Microphone"><img class="btn-icon" src="icons/mic-on.webp"></button>
+        <button class="ctrl-btn" id="cam-toggle" title="Toggle Camera"><img class="btn-icon" src="icons/video.webp"></button>
+        <button class="ctrl-btn record-btn" id="record-btn" title="Start Recording">REC</button>
+        <button class="ctrl-btn" id="downloads-btn" title="Downloads"><img class="btn-icon" src="icons/downloads.webp"></button>
+        <button class="ctrl-btn" id="recordings-mgmt-btn" title="Manage Recordings" style="display:none;"><img class="btn-icon" src="icons/recordings.webp"></button>
+        <button class="ctrl-btn" id="sidebar-toggle" title="Show/Hide Sidebar"><img class="btn-icon" src="icons/sidebar.webp"></button>
+        <button class="ctrl-btn leave-btn" id="leave-btn" title="Leave">✕</button>
+      </div>
+
+      <div class="upload-status" id="upload-status">
+        <span class="upload-label" id="upload-label">Uploading chunks…</span>
+        <div class="upload-progress-bar">
+          <div class="upload-progress-fill" id="upload-progress-fill"></div>
+        </div>
+        <span class="upload-label" id="upload-count"></span>
+      </div>
+    </div>
+
+    <!-- ═══════ PRODUCTION SIDEBAR ═══════ -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-resize-handle" id="sidebar-resize-handle"></div>
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" data-tab="soundboard">Soundboard</button>
+        <button class="sidebar-tab" data-tab="prepnotes">Prep Notes</button>
+        <button class="sidebar-tab" data-tab="screenshots">Screenshots</button>
+        <button class="sidebar-tab" data-tab="notes">Chat</button>
+      </div>
+
+      <!-- ── Soundboard Panel ── -->
+      <div class="sidebar-panel active" id="panel-soundboard">
+        <div class="panel-section">
+          <div id="server-library-section">
+            <label class="panel-label">Server Clip Library</label>
+            <div id="server-clip-list" style="max-height:200px; overflow-y:auto; margin-bottom:0.5rem;">
+              <div class="panel-empty" style="padding:0.75rem; font-size:0.8rem;">Loading…</div>
+            </div>
+          </div>
+          <label class="panel-label" style="margin-top:0.5rem;">Add Clip</label>
+              <div class="clip-upload-area" id="clip-upload-area">
+                <input type="file" id="clip-file-input" accept="audio/*,video/*" multiple hidden />
+                <button class="btn-small" id="clip-add-btn">+ Add local clips</button>
+              </div>
+              <div class="add-clip" id="save-to-server-section">
+                <label class="route-option">
+                  <input type="checkbox" id="save-clip-to-server" /> Save to server library
+                </label>
+                <select id="clip-category" class="panel-select" style="margin-top:0.3rem; font-size:0.8rem; padding:0.35rem 0.5rem;">
+                  <option value="intro">Intro</option>
+                  <option value="outro">Outro</option>
+                  <option value="sfx">Sound Effect</option>
+                  <option value="bumper">Bumper</option>
+                  <option value="general" selected>General</option>
+                </select>
+              </div>
+        </div>
+        <div class="clip-list" id="clip-list">
+          <div class="panel-empty">No local clips loaded</div>
+        </div>
+        <div class="panel-section" id="clip-routing-section" style="margin-top:auto; padding-top:0.75rem; border-top:1px solid var(--border); font-size:0.72rem; color:var(--text-dim); text-align:center; opacity:0.6;">
+          Clips route to all participants and recording
+        </div>
+      </div>
+
+      <!-- ── Prep Notes Panel ── -->
+      <div class="sidebar-panel" id="panel-prepnotes" style="flex-direction:column; padding:0;">
+        <div class="pn-header">
+          <select id="pn-game-select" class="pn-game-select">
+            <option value="">Select episode…</option>
+          </select>
+          <button id="pn-refresh-btn" class="pn-refresh-btn" title="Refresh">↻</button>
+        </div>
+        <div class="pn-tabs" id="pn-tabs" style="display:none;">
+          <button class="pn-tab active" data-pntab="n-shared">Shared Notes</button>
+          <button class="pn-tab" data-pntab="n-mine">My Notes</button>
+        </div>
+        <div class="pn-body" id="pn-body">
+          <div class="pn-empty">Select an episode to view prep notes.</div>
+        </div>
+      </div>
+
+      <!-- ── Screenshots Panel ── -->
+      <div class="sidebar-panel" id="panel-screenshots" style="padding:.75rem;overflow-y:auto;gap:.5rem">
+        <div style="display:flex;align-items:center;gap:.4rem">
+          <span class="panel-label" style="margin-bottom:0">Screenshots</span>
+          <span id="studio-ss-count" style="font-size:.7rem;color:var(--text-dim);font-weight:400"></span>
+        </div>
+        <div id="studio-ss-grid" class="studio-ss-grid">
+          <div class="panel-empty" style="font-size:.78rem;">Select an episode in Prep Notes to view screenshots.</div>
+        </div>
+      </div>
+
+      <!-- ── Chat Panel ── -->
+      <div class="sidebar-panel" id="panel-notes">
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" class="chat-input" id="chat-input" placeholder="Message everyone…" maxlength="500" autocomplete="off" />
+          <button class="chat-send-btn" id="chat-send-btn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DOWNLOADS PANEL ═══════ -->
+<div class="downloads-panel" id="downloads-panel">
+  <div class="downloads-card">
+    <h2>Recordings</h2>
+    <p>Each participant's audio is recorded as a separate track.</p>
+    <div id="downloads-list"></div>
+    <button class="btn btn-primary downloads-close" id="downloads-close">Close</button>
+  </div>
+</div>
+
+<!-- ═══════ RECORDINGS MANAGEMENT PANEL (host only) ═══════ -->
+<div class="downloads-panel" id="recordings-mgmt-panel">
+  <div class="downloads-card" style="max-width:600px; max-height:80vh; overflow-y:auto;">
+    <h2>Server Recordings</h2>
+    <p>All recording sessions stored on the server.</p>
+    <div id="recordings-mgmt-list"></div>
+    <button class="btn btn-primary downloads-close" id="recordings-mgmt-close">Close</button>
+  </div>
+</div>
+
+<!-- ═══════ POST-SESSION SCREEN ═══════ -->
+<div class="downloads-panel" id="post-session-panel">
+  <div class="downloads-card" style="max-width:500px;">
+    <h2>Session Ended</h2>
+    <p>Your local recordings from this session:</p>
+    <div id="post-session-list"></div>
+    <button class="btn btn-primary downloads-close" id="post-session-close" style="margin-top:0.75rem;">Back to Lobby</button>
+  </div>
+</div>
+
+<!-- ═══════ SETTINGS PANEL ═══════ -->
+<div class="downloads-panel" id="settings-panel">
+  <div class="downloads-card" style="max-width:440px;">
+    <h2>Audio / Video Settings</h2>
+    <p>Changes take effect immediately.</p>
+
+    <div class="field" style="margin-top:1rem;">
+      <label>Microphone</label>
+      <select id="studio-mic-select" class="panel-select" style="width:100%;"></select>
+    </div>
+
+    <div class="field">
+      <label>Speaker / Output</label>
+      <select id="studio-speaker-select" class="panel-select" style="width:100%;"></select>
+    </div>
+
+    <div class="field">
+      <label>Camera</label>
+      <select id="studio-cam-select" class="panel-select" style="width:100%;"></select>
+    </div>
+
+    <button class="btn btn-primary downloads-close" id="settings-close" style="margin-top:0.5rem;">Close</button>
+  </div>
+</div>
+
+<!-- ═══════ TOAST AREA ═══════ -->
+<div class="toast-area" id="toast-area"></div>
+
+<!-- ═══════ COUNTDOWN OVERLAY ═══════ -->
+<div class="countdown-overlay" id="countdown-overlay">
+  <div class="countdown-content">
+    <div class="countdown-label">Recording starts in</div>
+    <div class="countdown-number" id="countdown-number">3</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+const state = {
+  ws: null,
+  myId: null,
+  username: "",
+  role: "",            // "host", "member", "guest"
+  localStream: null,
+  peers: {},          // { peerId: { pc, username, audioEl, stream } }
+  isRecording: false,
+  recorder: null,     // local MediaRecorder
+  recordedChunks: [],
+  recordings: [],     // finished blobs [{ name, blob, duration }]
+  recordStart: null,
+  timerInterval: null,
+  audioContext: null,
+  analyserLocal: null,
+  micMuted: false,
+  camOff: true,
+  videoTrack: null,
+  isHost: false,
+  sessionId: null,
+  recordingDest: null,    // local track: mic + sync tones
+  mixDest: null,          // host only: all audio mixed together
+  mixRecorder: null,      // host only: records the mix
+  mixChunks: [],          // host only: mix recording chunks
+  // Upload state
+  uploadQueue: [],        // queue of { blob, meta, retries }
+  uploading: false,
+  chunkIndex: 0,          // monotonic chunk counter
+  mixChunkIndex: 0,       // chunk counter for mix track
+  uploadedCount: 0,
+  uploadFailedCount: 0,
+};
+
+// ═══════════════════════════════════════════════
+//  DEVICE ENUMERATION
+// ═══════════════════════════════════════════════
+async function enumerateDevices() {
+  try {
+    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    tempStream.getTracks().forEach((t) => t.stop());
+  } catch (e) {
+    showToast("Microphone access is required", "error");
+    return;
+  }
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+
+  // Lobby selects
+  const micSelect = document.getElementById("mic-select");
+  const camSelect = document.getElementById("cam-select");
+  const speakerSelect = document.getElementById("speaker-select");
+
+  // Studio selects (may not exist yet)
+  const studioMic = document.getElementById("studio-mic-select");
+  const studioCam = document.getElementById("studio-cam-select");
+  const studioSpeaker = document.getElementById("studio-speaker-select");
+
+  // Save current selections to restore after repopulating (fall back to localStorage for auto-login)
+  const currentMic = micSelect.value || (studioMic && studioMic.value);
+  const currentCam = camSelect.value || (studioCam && studioCam.value) || localStorage.getItem("podcast-studio-cam");
+  const currentSpeaker = speakerSelect.value || (studioSpeaker && studioSpeaker.value);
+
+  // Clear all
+  micSelect.innerHTML = "";
+  camSelect.innerHTML = '<option value="">No camera</option>';
+  speakerSelect.innerHTML = '<option value="">Default</option>';
+  if (studioMic) studioMic.innerHTML = "";
+  if (studioCam) studioCam.innerHTML = '<option value="">No camera</option>';
+  if (studioSpeaker) studioSpeaker.innerHTML = '<option value="">Default</option>';
+
+  devices.forEach((d) => {
+    if (d.kind === "audioinput") {
+      const label = d.label || `Mic ${micSelect.children.length + 1}`;
+      micSelect.appendChild(new Option(label, d.deviceId));
+      if (studioMic) studioMic.appendChild(new Option(label, d.deviceId));
+    } else if (d.kind === "videoinput") {
+      const label = d.label || `Camera ${camSelect.children.length}`;
+      camSelect.appendChild(new Option(label, d.deviceId));
+      if (studioCam) studioCam.appendChild(new Option(label, d.deviceId));
+    } else if (d.kind === "audiooutput") {
+      const label = d.label || `Speaker ${speakerSelect.children.length}`;
+      speakerSelect.appendChild(new Option(label, d.deviceId));
+      if (studioSpeaker) studioSpeaker.appendChild(new Option(label, d.deviceId));
+    }
+  });
+
+  // Restore selections
+  if (currentMic) { micSelect.value = currentMic; if (studioMic) studioMic.value = currentMic; }
+  if (currentCam) { camSelect.value = currentCam; if (studioCam) studioCam.value = currentCam; }
+  if (currentSpeaker) { speakerSelect.value = currentSpeaker; if (studioSpeaker) studioSpeaker.value = currentSpeaker; }
+
+  document.getElementById("join-btn").disabled = micSelect.children.length === 0;
+}
+
+enumerateDevices().then(() => {
+  const su = localStorage.getItem("podcast-studio-username");
+  const sp = localStorage.getItem("podcast-studio-password");
+  const joinBtn = document.getElementById("join-btn");
+  if (su && sp && joinBtn && !joinBtn.disabled) {
+    document.getElementById("password").value = sp;
+    joinBtn.click();
+  }
+});
+
+// Listen for device changes (plugging in headphones, etc.)
+navigator.mediaDevices.addEventListener("devicechange", enumerateDevices);
+
+// ═══════════════════════════════════════════════
+//  JOIN
+// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  RETURNING USER — pre-populate name, show old recordings
+// ═══════════════════════════════════════════════
+const savedUsername = localStorage.getItem("podcast-studio-username");
+if (savedUsername) {
+  document.getElementById("username").value = savedUsername;
+}
+
+// Show any locally saved recordings from previous sessions
+function showLobbyRecordings() {
+  const stored = JSON.parse(localStorage.getItem("podcast-studio-local-recordings") || "[]");
+  const container = document.getElementById("lobby-recordings");
+  const list = document.getElementById("lobby-recordings-list");
+
+  if (stored.length === 0) {
+    container.style.display = "none";
+    return;
+  }
+
+  container.style.display = "block";
+  list.innerHTML = "";
+
+  stored.forEach((rec, i) => {
+    const item = document.createElement("div");
+    item.className = "download-item";
+    item.style.marginBottom = "0.4rem";
+    const size = rec.size ? `${(rec.size / (1024 * 1024)).toFixed(1)} MB` : "";
+    item.innerHTML = `
+      <div>
+        <span style="font-size:0.85rem">${rec.name}</span><br/>
+        <span class="dl-meta">${rec.date || ""} ${size ? "· " + size : ""}</span>
+      </div>
+      <div style="display:flex; gap:0.5rem;">
+        <a href="#" class="lobby-dl-link" data-idx="${i}" style="color:var(--accent); text-decoration:none; font-weight:600; font-size:0.82rem;">Download</a>
+        <a href="#" class="lobby-rm-link" data-idx="${i}" style="color:var(--text-dim); text-decoration:none; font-size:0.82rem;">✕</a>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll(".lobby-dl-link").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const rec = stored[parseInt(link.dataset.idx)];
+      if (rec && rec.dataUrl) {
+        const a = document.createElement("a");
+        a.href = rec.dataUrl;
+        a.download = `${rec.name}.webm`;
+        a.click();
+      }
+    });
+  });
+
+  list.querySelectorAll(".lobby-rm-link").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      stored.splice(parseInt(link.dataset.idx), 1);
+      localStorage.setItem("podcast-studio-local-recordings", JSON.stringify(stored));
+      showLobbyRecordings();
+    });
+  });
+}
+
+showLobbyRecordings();
+
+// ═══════════════════════════════════════════════
+//  JOIN WITH PASSWORD AUTH
+// ═══════════════════════════════════════════════
+document.getElementById("join-btn").addEventListener("click", async () => {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const authError = document.getElementById("auth-error");
+  authError.style.display = "none";
+
+  if (!username || !password) {
+    authError.textContent = "Name and password are required";
+    authError.style.display = "block";
+    return;
+  }
+
+  // Authenticate with server
+  try {
+    const authRes = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const authData = await authRes.json();
+
+    if (!authData.ok) {
+      authError.textContent = authData.error || "Invalid password";
+      authError.style.display = "block";
+      return;
+    }
+
+    state.role = authData.role;
+  } catch (e) {
+    authError.textContent = "Could not connect to server";
+    authError.style.display = "block";
+    return;
+  }
+
+  state.username = username;
+
+  // Save credentials for auto-reconnect on refresh
+  localStorage.setItem("podcast-studio-username", username);
+  localStorage.setItem("podcast-studio-password", password);
+
+  // Acquire media
+  const micId = document.getElementById("mic-select").value;
+  const camId = document.getElementById("cam-select").value;
+
+  const constraints = {
+    audio: { deviceId: micId ? { exact: micId } : undefined, echoCancellation: true, noiseSuppression: true },
+  };
+
+  if (camId) {
+    constraints.video = { deviceId: { exact: camId }, width: { ideal: 640 }, height: { ideal: 480 } };
+  }
+
+  try {
+    state.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (e) {
+    showToast("Could not access microphone: " + e.message, "error");
+    return;
+  }
+
+  if (camId) {
+    state.videoTrack = state.localStream.getVideoTracks()[0] || null;
+    state.camOff = false;
+    const camBtn = document.getElementById("cam-toggle");
+    camBtn.innerHTML = '<img class="btn-icon" src="icons/video-on.webp">';
+    localStorage.setItem("podcast-studio-cam", camId);
+  }
+
+  setupAudioAnalysis();
+
+  // Connect WebSocket — everyone joins the same room "studio"
+  const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+  state.ws = new WebSocket(`${wsProto}//${location.host}`);
+
+  state.ws.onopen = () => {
+    state.ws.send(JSON.stringify({ type: "join", room: "studio", username, role: state.role }));
+  };
+
+  state.ws.onmessage = (e) => handleSignal(JSON.parse(e.data));
+
+  state.ws.onclose = () => {
+    showToast("Disconnected from server", "error");
+  };
+
+  // Show studio
+  document.getElementById("lobby").style.display = "none";
+  document.getElementById("studio").classList.add("active");
+  document.getElementById("room-display").textContent = state.role;
+  window.addEventListener("beforeunload", handleBeforeUnload);
+
+  // Show/hide host-only controls
+  const recMgmtBtn = document.getElementById("recordings-mgmt-btn");
+  if (recMgmtBtn) recMgmtBtn.style.display = state.role === "host" ? "" : "none";
+  const recordBtn = document.getElementById("record-btn");
+  if (recordBtn) recordBtn.style.display = state.role === "host" ? "" : "none";
+
+  // Remove host-only sidebar sections from DOM for non-hosts
+  if (state.role !== "host") {
+    document.getElementById("server-library-section")?.remove();
+    document.getElementById("save-to-server-section")?.remove();
+    document.getElementById("clip-routing-section")?.remove();
+  }
+
+  addParticipantTile(null, username, true);
+
+  // Auto-load the current prep game for this user
+  window._prepNotesAutoLoad?.();
+});
+
+// ═══════════════════════════════════════════════
+//  NAVIGATION GUARD
+// ═══════════════════════════════════════════════
+function handleBeforeUnload(e) {
+  e.preventDefault();
+  e.returnValue = "";
+}
+
+// ═══════════════════════════════════════════════
+//  SIGNALING
+// ═══════════════════════════════════════════════
+function handleSignal(msg) {
+  switch (msg.type) {
+    case "room-info":
+      state.myId = msg.yourId;
+      state.isHost = state.role === "host";
+      if (state.isHost) {
+        showToast("You are the session host", "info");
+      }
+      for (const p of msg.participants) {
+        createPeer(p.id, p.username, true);
+      }
+      break;
+
+    case "peer-joined":
+      createPeer(msg.id, msg.username, false);
+      // Store role for this peer
+      if (state.peers[msg.id]) state.peers[msg.id].role = msg.role;
+      showToast(`${msg.username} joined`, "success");
+      break;
+
+    case "signal":
+      handlePeerSignal(msg.fromId, msg.signal);
+      break;
+
+    case "peer-left":
+      removePeer(msg.id);
+      showToast(`${msg.username} left`, "info");
+      break;
+
+    case "recording-control":
+      handleRecordingControl(msg);
+      break;
+
+    case "game-load":
+      handleRemoteGameLoad(msg);
+      break;
+
+    case "remote-mute":
+      handleRemoteMute(msg);
+      break;
+
+    case "clip-share-request":
+      handleClipShareRequest(msg);
+      break;
+
+    case "chat":
+      appendChatMessage(msg.username, msg.text, msg.fromId === state.myId);
+      break;
+
+    case "you-were-removed":
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      showToast("You were removed from the session by the host", "error");
+      if (state.localStream) state.localStream.getTracks().forEach((t) => t.stop());
+      for (const [id] of Object.entries(state.peers)) removePeer(id);
+      if (state.ws) { state.ws.onclose = null; state.ws.close(); }
+      document.getElementById("studio").classList.remove("active");
+      document.getElementById("lobby").style.display = "flex";
+      showLobbyRecordings();
+      break;
+
+    case "session-ended":
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      showToast("The host has ended the session", "error");
+      if (state.isRecording) stopRecording();
+      if (state.localStream) state.localStream.getTracks().forEach((t) => t.stop());
+      for (const [id] of Object.entries(state.peers)) removePeer(id);
+      if (state.ws) { state.ws.onclose = null; state.ws.close(); }
+      document.getElementById("studio").classList.remove("active");
+      document.getElementById("lobby").style.display = "flex";
+      showLobbyRecordings();
+      break;
+  }
+}
+
+function handleRemoteMute(msg) {
+  const audioTracks = state.localStream.getAudioTracks();
+  state.micMuted = msg.muted;
+  audioTracks.forEach((t) => (t.enabled = !state.micMuted));
+
+  const btn = document.getElementById("mic-toggle");
+  btn.classList.toggle("muted", state.micMuted);
+  btn.textContent = state.micMuted ? "🔇" : "🎙️";
+
+  showToast(msg.muted ? `${msg.fromUsername} muted you` : `${msg.fromUsername} unmuted you`, "info");
+}
+
+// ═══════════════════════════════════════════════
+//  WEBRTC PEER CONNECTIONS
+// ═══════════════════════════════════════════════
+const rtcConfig = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+};
+
+function createPeer(peerId, peerUsername, initiator) {
+  const pc = new RTCPeerConnection(rtcConfig);
+
+  const peerData = {
+    pc,
+    username: peerUsername,
+    audioEl: null,
+    stream: null,
+  };
+
+  state.peers[peerId] = peerData;
+
+  // Add local tracks — audio comes from the mixed peerOutputDest so soundboard/video is included
+  if (state.peerOutputDest) {
+    state.peerOutputDest.stream.getAudioTracks().forEach(t => pc.addTrack(t, state.peerOutputDest.stream));
+  } else {
+    state.localStream.getAudioTracks().forEach(t => pc.addTrack(t, state.localStream));
+  }
+  state.localStream.getVideoTracks().forEach(t => pc.addTrack(t, state.localStream));
+
+  // Handle incoming tracks
+  pc.ontrack = (e) => {
+    const stream = e.streams[0];
+    peerData.stream = stream;
+
+    // Create audio element for playback (audio track only, so we don't double-play audio
+    // through the video element when video eventually arrives)
+    if (e.track.kind === "audio" && !peerData.audioEl) {
+      const audio = document.createElement("audio");
+      audio.autoplay = true;
+      audio.srcObject = stream;
+      document.body.appendChild(audio);
+      peerData.audioEl = audio;
+
+      // Apply selected audio output
+      const outputId = document.getElementById("speaker-select").value;
+      if (outputId && typeof audio.setSinkId === "function") {
+        audio.setSinkId(outputId).catch(() => {});
+      }
+    }
+
+    // When the video track arrives, force the video element to reload the stream so the
+    // browser doesn't silently skip the srcObject assignment (same object reference).
+    if (e.track.kind === "video") {
+      const tile = document.getElementById(`tile-${peerId}`);
+      if (tile) {
+        const video = tile.querySelector("video");
+        if (video) {
+          video.srcObject = null;
+          video.srcObject = stream;
+          tile.classList.remove("no-video");
+        }
+      }
+    }
+
+    // Add/update tile with video
+    addParticipantTile(peerId, peerUsername, false, stream);
+    setupRemoteAudioAnalysis(peerId, stream);
+
+    // If host is already recording, add this peer to the combined mix
+    if (state.isHost && state.mixDest && state.isRecording) {
+      connectPeerToMix(peerData);
+    }
+  };
+
+  // ICE candidates
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      state.ws.send(
+        JSON.stringify({
+          type: "signal",
+          targetId: peerId,
+          signal: { candidate: e.candidate },
+        })
+      );
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === "failed") {
+      showToast(`Connection to ${peerUsername} failed`, "error");
+    }
+  };
+
+  // If initiator, create offer
+  if (initiator) {
+    pc.createOffer()
+      .then((offer) => pc.setLocalDescription(offer))
+      .then(() => {
+        state.ws.send(
+          JSON.stringify({
+            type: "signal",
+            targetId: peerId,
+            signal: { sdp: pc.localDescription },
+          })
+        );
+      });
+  }
+
+  addParticipantTile(peerId, peerUsername, false);
+  updateGridLayout();
+}
+
+async function handlePeerSignal(fromId, signal) {
+  let peer = state.peers[fromId];
+
+  if (!peer) {
+    // Unknown peer sending us an offer — we haven't set them up yet
+    // This shouldn't happen with our flow, but handle it gracefully
+    return;
+  }
+
+  const pc = peer.pc;
+
+  if (signal.sdp) {
+    await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+    if (signal.sdp.type === "offer") {
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      state.ws.send(
+        JSON.stringify({
+          type: "signal",
+          targetId: fromId,
+          signal: { sdp: pc.localDescription },
+        })
+      );
+    }
+  }
+
+  if (signal.candidate) {
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+    } catch (e) {
+      console.warn("ICE candidate error:", e);
+    }
+  }
+}
+
+function removePeer(peerId) {
+  const peer = state.peers[peerId];
+  if (!peer) return;
+
+  peer.pc.close();
+  if (peer.audioEl) {
+    peer.audioEl.srcObject = null;
+    peer.audioEl.remove();
+  }
+
+  delete state.peers[peerId];
+
+  // Remove tile
+  const tile = document.getElementById(`tile-${peerId}`);
+  if (tile) tile.remove();
+
+  updateGridLayout();
+}
+
+// ═══════════════════════════════════════════════
+//  PARTICIPANT TILES
+// ═══════════════════════════════════════════════
+function addParticipantTile(peerId, username, isLocal, stream) {
+  const grid = document.getElementById("participant-grid");
+  const tileId = isLocal ? "tile-local" : `tile-${peerId}`;
+
+  // Update if already exists
+  let tile = document.getElementById(tileId);
+  if (tile && stream) {
+    const video = tile.querySelector("video");
+    if (video) {
+      // Reset srcObject so the browser re-evaluates the stream even if it's the same
+      // object reference (browsers silently ignore reassignment of the same MediaStream).
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+      } else {
+        video.srcObject = null;
+        video.srcObject = stream;
+      }
+      if (stream.getVideoTracks().length > 0) {
+        tile.classList.remove("no-video");
+      }
+    }
+    return;
+  }
+
+  if (tile) return; // Already exists, no stream to update
+
+  tile = document.createElement("div");
+  tile.className = `participant-tile no-video${isLocal ? " local-tile" : ""}`;
+  tile.id = tileId;
+
+  const initials = username.slice(0, 2).toUpperCase();
+  const showMuteBtn = state.isHost && !isLocal;
+
+  tile.innerHTML = `
+    <div class="participant-avatar">${initials}</div>
+    <video autoplay playsinline ${isLocal ? "muted" : ""}></video>
+    <div class="participant-name">
+      ${username}${isLocal ? '<span class="you-badge">(you)</span>' : ""}
+    </div>
+    ${showMuteBtn ? `<button class="tile-mute-btn" data-peer-id="${peerId}" title="Mute ${username}" style="position:absolute;top:0.5rem;right:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.7rem;cursor:pointer;opacity:0;transition:opacity 0.2s;">🎙️</button>` : ""}
+    ${showMuteBtn ? `<button class="tile-remove-btn" data-peer-id="${peerId}" title="Remove ${username}" style="position:absolute;top:0.5rem;left:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.75rem;cursor:pointer;opacity:0;transition:opacity 0.2s;">✕</button>` : ""}
+    <div class="audio-meter" id="meter-${tileId}">
+      <div class="meter-bar"></div>
+      <div class="meter-bar"></div>
+      <div class="meter-bar"></div>
+      <div class="meter-bar"></div>
+      <div class="meter-bar"></div>
+    </div>
+  `;
+
+  // Host mute and remove buttons for remote participants
+  if (showMuteBtn) {
+    const muteBtn = tile.querySelector(".tile-mute-btn");
+    const removeBtn = tile.querySelector(".tile-remove-btn");
+    let peerMuted = false;
+    tile.addEventListener("mouseenter", () => {
+      muteBtn.style.opacity = "1";
+      removeBtn.style.opacity = "1";
+    });
+    tile.addEventListener("mouseleave", () => {
+      muteBtn.style.opacity = "0";
+      removeBtn.style.opacity = "0";
+    });
+    muteBtn.addEventListener("click", () => {
+      peerMuted = !peerMuted;
+      muteBtn.textContent = peerMuted ? "🔇" : "🎙️";
+      muteBtn.style.background = peerMuted ? "var(--accent)" : "var(--surface-2)";
+      state.ws.send(JSON.stringify({
+        type: "remote-mute",
+        targetId: peerId,
+        muted: peerMuted,
+      }));
+    });
+    removeBtn.addEventListener("click", () => {
+      if (!confirm(`Remove ${username} from the session?`)) return;
+      state.ws.send(JSON.stringify({
+        type: "remove-peer",
+        targetId: peerId,
+      }));
+    });
+  }
+
+  const video = tile.querySelector("video");
+
+  if (isLocal && state.localStream) {
+    video.srcObject = state.localStream;
+    if (state.localStream.getVideoTracks().length > 0) {
+      tile.classList.remove("no-video");
+    }
+  } else if (stream) {
+    video.srcObject = stream;
+    if (stream.getVideoTracks().length > 0) {
+      tile.classList.remove("no-video");
+    }
+  }
+
+  grid.appendChild(tile);
+  updateGridLayout();
+}
+
+function updateGridLayout() {
+  const grid = document.getElementById("participant-grid");
+  const count = grid.children.length;
+  grid.setAttribute("data-count", Math.min(count, 4));
+}
+
+// ═══════════════════════════════════════════════
+//  AUDIO ANALYSIS (Level meters & speaking indicator)
+// ═══════════════════════════════════════════════
+function setupAudioAnalysis() {
+  state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  // peerOutputDest is what peers receive: mic + soundboard/video mixed in
+  state.peerOutputDest = state.audioContext.createMediaStreamDestination();
+  const micSource = state.audioContext.createMediaStreamSource(state.localStream);
+  micSource.connect(state.peerOutputDest);
+
+  // Analyser stays on the raw mic so the level meter is unaffected
+  state.analyserLocal = state.audioContext.createAnalyser();
+  state.analyserLocal.fftSize = 256;
+  micSource.connect(state.analyserLocal);
+
+  animateMeters();
+}
+
+function setupRemoteAudioAnalysis(peerId, stream) {
+  if (!state.audioContext) return;
+  const source = state.audioContext.createMediaStreamSource(stream);
+  const analyser = state.audioContext.createAnalyser();
+  analyser.fftSize = 256;
+  source.connect(analyser);
+  state.peers[peerId]._analyser = analyser;
+}
+
+function animateMeters() {
+  // Local meter
+  updateMeter("meter-tile-local", state.analyserLocal, "tile-local");
+
+  // Remote meters
+  for (const [peerId, peer] of Object.entries(state.peers)) {
+    if (peer._analyser) {
+      updateMeter(`meter-tile-${peerId}`, peer._analyser, `tile-${peerId}`);
+    }
+  }
+
+  requestAnimationFrame(animateMeters);
+}
+
+function updateMeter(meterId, analyser, tileId) {
+  const meter = document.getElementById(meterId);
+  const tile = document.getElementById(tileId);
+  if (!meter || !analyser) return;
+
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(data);
+
+  // Get average volume
+  const avg = data.reduce((a, b) => a + b, 0) / data.length;
+  const normalized = Math.min(avg / 80, 1); // 0-1
+
+  const bars = meter.querySelectorAll(".meter-bar");
+  bars.forEach((bar, i) => {
+    const level = Math.max(0, normalized - i * 0.15) * (20 / (1 - i * 0.15));
+    bar.style.height = `${Math.max(3, Math.min(20, level))}px`;
+  });
+
+  // Speaking indicator
+  if (tile) {
+    if (normalized > 0.15) {
+      tile.classList.add("speaking");
+    } else {
+      tile.classList.remove("speaking");
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  SYNC TONE GENERATOR
+// ═══════════════════════════════════════════════
+function playSyncTone(durationMs = 500, freqHz = 1000) {
+  if (!state.audioContext) return;
+  const osc = state.audioContext.createOscillator();
+  const gain = state.audioContext.createGain();
+
+  osc.type = "sine";
+  osc.frequency.value = freqHz;
+  gain.gain.value = 0.3;
+
+  osc.connect(gain);
+
+  // Route through soundboard output element (respects setSinkId)
+  const sbOut = getSoundboardOutput();
+  if (sbOut) {
+    gain.connect(sbOut);
+  } else {
+    gain.connect(state.audioContext.destination);
+  }
+
+  if (state.recordingDest) gain.connect(state.recordingDest);
+  if (state.mixDest) gain.connect(state.mixDest);
+
+  osc.start();
+  osc.stop(state.audioContext.currentTime + durationMs / 1000);
+}
+
+// ═══════════════════════════════════════════════
+//  CHUNKED UPLOAD QUEUE
+// ═══════════════════════════════════════════════
+function enqueueChunk(blob, meta) {
+  state.uploadQueue.push({ blob, meta, retries: 0 });
+  processUploadQueue();
+}
+
+async function processUploadQueue() {
+  if (state.uploading || state.uploadQueue.length === 0) return;
+  state.uploading = true;
+
+  while (state.uploadQueue.length > 0) {
+    const item = state.uploadQueue[0];
+    const success = await uploadChunk(item.blob, item.meta);
+
+    if (success) {
+      state.uploadQueue.shift();
+      state.uploadedCount++;
+      updateUploadStatus();
+    } else {
+      item.retries++;
+      if (item.retries >= 5) {
+        // Give up on this chunk after 5 retries
+        state.uploadQueue.shift();
+        state.uploadFailedCount++;
+        updateUploadStatus();
+        console.warn(`Gave up on chunk ${item.meta.chunkIndex} after 5 retries`);
+      } else {
+        // Wait with exponential backoff before retrying
+        const delay = Math.min(1000 * Math.pow(2, item.retries), 10000);
+        await sleep(delay);
+      }
+    }
+  }
+
+  state.uploading = false;
+}
+
+async function uploadChunk(blob, meta) {
+  try {
+    // Send as: JSON metadata line + \n + binary audio data
+    const metaStr = JSON.stringify(meta);
+    const metaBytes = new TextEncoder().encode(metaStr + "\n");
+    const audioBytes = await blob.arrayBuffer();
+
+    const combined = new Uint8Array(metaBytes.length + audioBytes.byteLength);
+    combined.set(metaBytes, 0);
+    combined.set(new Uint8Array(audioBytes), metaBytes.length);
+
+    const response = await fetch("/api/upload-chunk", {
+      method: "POST",
+      body: combined,
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return true;
+  } catch (e) {
+    console.warn(`Upload failed (chunk ${meta.chunkIndex}):`, e.message);
+    return false;
+  }
+}
+
+async function finalizeUpload(trackType) {
+  try {
+    const response = await fetch("/api/finalize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: state.sessionId,
+        participantId: state.myId,
+        username: state.username,
+        mimeType: "audio/webm;codecs=opus",
+        trackType,
+      }),
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    console.log(`Finalized ${trackType} track:`, result);
+    return result;
+  } catch (e) {
+    console.error("Finalize failed:", e.message);
+    return null;
+  }
+}
+
+function updateUploadStatus() {
+  const statusEl = document.getElementById("upload-status");
+  const labelEl = document.getElementById("upload-label");
+  const countEl = document.getElementById("upload-count");
+  const fillEl = document.getElementById("upload-progress-fill");
+
+  const total = state.uploadedCount + state.uploadFailedCount + state.uploadQueue.length;
+  if (total === 0) {
+    statusEl.classList.remove("active");
+    return;
+  }
+
+  statusEl.classList.add("active");
+
+  const done = state.uploadedCount + state.uploadFailedCount;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  fillEl.style.width = `${pct}%`;
+
+  if (state.uploadQueue.length > 0) {
+    labelEl.textContent = "Uploading…";
+    countEl.textContent = `${done}/${total}`;
+  } else if (state.uploadFailedCount > 0) {
+    labelEl.textContent = `Done (${state.uploadFailedCount} failed)`;
+    countEl.textContent = `${state.uploadedCount}/${total}`;
+    statusEl.classList.add("error");
+  } else {
+    labelEl.textContent = "All chunks uploaded";
+    countEl.textContent = `${total}`;
+    statusEl.classList.remove("error");
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  HOST-CONTROLLED RECORDING WITH SYNC + UPLOAD
+// ═══════════════════════════════════════════════
+document.getElementById("record-btn").addEventListener("click", () => {
+  if (!state.isRecording) {
+    if (!state.isHost) {
+      showToast("Only the host can start recording", "info");
+      return;
+    }
+    const sessionId = crypto.randomUUID();
+    state.ws.send(JSON.stringify({
+      type: "recording-control",
+      action: "countdown",
+      sessionId,
+    }));
+  } else {
+    if (!state.isHost) {
+      showToast("Only the host can stop recording", "info");
+      return;
+    }
+    state.ws.send(JSON.stringify({
+      type: "recording-control",
+      action: "stop",
+      sessionId: state.sessionId,
+    }));
+  }
+});
+
+function handleRecordingControl(msg) {
+  switch (msg.action) {
+    case "countdown":
+      state.sessionId = msg.sessionId;
+      runCountdown();
+      break;
+    case "start":
+      actuallyStartRecording();
+      break;
+    case "stop":
+      stopRecording();
+      break;
+  }
+}
+
+async function runCountdown() {
+  const overlay = document.getElementById("countdown-overlay");
+  const numberEl = document.getElementById("countdown-number");
+  overlay.classList.add("active");
+
+  for (let i = 3; i >= 1; i--) {
+    numberEl.textContent = i;
+    numberEl.style.animation = "none";
+    numberEl.offsetHeight;
+    numberEl.style.animation = "countdown-pop 0.5s ease-out";
+    playSyncTone(80, 800);
+    await sleep(1000);
+  }
+
+  overlay.classList.remove("active");
+
+  if (state.isHost) {
+    state.ws.send(JSON.stringify({
+      type: "recording-control",
+      action: "start",
+      sessionId: state.sessionId,
+    }));
+  }
+}
+
+// Connect a peer's remote audio stream into the host's combined mix
+function connectPeerToMix(peer) {
+  if (!state.mixDest || !state.audioContext || !peer.stream) return;
+  if (peer._mixSource) return;
+  const source = state.audioContext.createMediaStreamSource(peer.stream);
+  source.connect(state.mixDest);
+  peer._mixSource = source;
+}
+
+function actuallyStartRecording() {
+  const audioTracks = state.localStream.getAudioTracks();
+  if (audioTracks.length === 0) {
+    showToast("No audio track available", "error");
+    return;
+  }
+
+  // Reset upload counters
+  state.chunkIndex = 0;
+  state.mixChunkIndex = 0;
+  state.uploadedCount = 0;
+  state.uploadFailedCount = 0;
+  state.uploadQueue = [];
+  document.getElementById("upload-status").classList.remove("error");
+
+  // Create a mixing destination: mic + sync tones
+  state.recordingDest = state.audioContext.createMediaStreamDestination();
+  const micSource = state.audioContext.createMediaStreamSource(new MediaStream(audioTracks));
+  micSource.connect(state.recordingDest);
+  state._recMicSource = micSource;
+
+  const recordStream = state.recordingDest.stream;
+  const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus"
+    : "audio/webm";
+
+  // ── Individual track recorder ──
+  state.recorder = new MediaRecorder(recordStream, {
+    mimeType,
+    audioBitsPerSecond: 128000,
+  });
+
+  state.recordedChunks = [];
+
+  state.recorder.ondataavailable = (e) => {
+    if (e.data.size > 0) {
+      state.recordedChunks.push(e.data);
+
+      // Upload this chunk to the server
+      enqueueChunk(e.data, {
+        sessionId: state.sessionId,
+        participantId: state.myId,
+        username: state.username,
+        chunkIndex: state.chunkIndex++,
+        trackType: "individual",
+      });
+    }
+  };
+
+  state.recorder.onstop = () => {
+    const blob = new Blob(state.recordedChunks, { type: mimeType });
+    const duration = state.recordStart ? (Date.now() - state.recordStart) / 1000 : 0;
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
+
+    state.recordings.push({
+      name: `${state.username}-${timestamp}`,
+      blob,
+      duration,
+      mimeType,
+    });
+
+    // Finalize on server (concatenate chunks)
+    finalizeUpload("individual");
+    showToast("Recording saved — check Downloads", "success");
+  };
+
+  // ── Host: combined mix recorder ──
+  if (state.isHost) {
+    state.mixDest = state.audioContext.createMediaStreamDestination();
+
+    const mixLocalSource = state.audioContext.createMediaStreamSource(new MediaStream(audioTracks));
+    mixLocalSource.connect(state.mixDest);
+    state._mixLocalSource = mixLocalSource;
+
+    for (const [, peer] of Object.entries(state.peers)) {
+      if (peer.stream) connectPeerToMix(peer);
+    }
+
+    state.mixChunks = [];
+    state.mixRecorder = new MediaRecorder(state.mixDest.stream, {
+      mimeType,
+      audioBitsPerSecond: 128000,
+    });
+
+    state.mixRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        state.mixChunks.push(e.data);
+
+        // Upload mix chunk to server
+        enqueueChunk(e.data, {
+          sessionId: state.sessionId,
+          participantId: state.myId,
+          username: state.username,
+          chunkIndex: state.mixChunkIndex++,
+          trackType: "mix",
+        });
+      }
+    };
+
+    state.mixRecorder.onstop = () => {
+      const mixBlob = new Blob(state.mixChunks, { type: mimeType });
+      const duration = state.recordStart ? (Date.now() - state.recordStart) / 1000 : 0;
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
+
+      state.recordings.push({
+        name: `MIX-all-participants-${timestamp}`,
+        blob: mixBlob,
+        duration,
+        mimeType,
+      });
+
+      finalizeUpload("mix");
+    };
+
+    state.mixRecorder.start(1000);
+  }
+
+  // Start recording in 1-second chunks for progressive upload
+  state.recorder.start(1000);
+  state.isRecording = true;
+  state.recordStart = Date.now();
+
+  // Sync tones
+  playSyncTone(300, 1000);
+  setTimeout(() => playSyncTone(300, 1500), 400);
+
+  // UI
+  const btn = document.getElementById("record-btn");
+  btn.classList.add("recording");
+  btn.textContent = "STOP";
+  document.getElementById("timer").classList.add("recording");
+  document.getElementById("rec-indicator").style.display = "";
+  updateUploadStatus();
+
+  startTimer();
+  showToast("Recording — uploading to server", "success");
+}
+
+function stopRecording() {
+  playSyncTone(200, 1500);
+  setTimeout(() => playSyncTone(200, 1000), 300);
+
+  setTimeout(() => {
+    if (state.recorder && state.recorder.state !== "inactive") {
+      state.recorder.stop();
+    }
+    if (state.mixRecorder && state.mixRecorder.state !== "inactive") {
+      state.mixRecorder.stop();
+    }
+
+    state.isRecording = false;
+    state.recordingDest = null;
+    state._recMicSource = null;
+    state.mixDest = null;
+    state.mixRecorder = null;
+    state._mixLocalSource = null;
+
+    const btn = document.getElementById("record-btn");
+    btn.classList.remove("recording");
+    btn.textContent = "REC";
+    document.getElementById("timer").classList.remove("recording");
+    document.getElementById("rec-indicator").style.display = "none";
+
+    stopTimer();
+    showToast("Recording stopped — finishing upload…", "info");
+  }, 600);
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// ═══════════════════════════════════════════════
+//  TIMER
+// ═══════════════════════════════════════════════
+function startTimer() {
+  state.timerInterval = setInterval(() => {
+    if (!state.recordStart) return;
+    const elapsed = Math.floor((Date.now() - state.recordStart) / 1000);
+    const h = String(Math.floor(elapsed / 3600)).padStart(2, "0");
+    const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
+    const s = String(elapsed % 60).padStart(2, "0");
+    document.getElementById("timer-text").textContent = `${h}:${m}:${s}`;
+  }, 250);
+}
+
+function stopTimer() {
+  clearInterval(state.timerInterval);
+}
+
+// ═══════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════
+document.getElementById("mic-toggle").addEventListener("click", () => {
+  const audioTracks = state.localStream.getAudioTracks();
+  state.micMuted = !state.micMuted;
+
+  audioTracks.forEach((t) => (t.enabled = !state.micMuted));
+
+  const btn = document.getElementById("mic-toggle");
+  btn.classList.toggle("muted", state.micMuted);
+  btn.innerHTML = state.micMuted ? '<img class="btn-icon" src="icons/mic-off.webp">' : '<img class="btn-icon" src="icons/mic-on.webp">';
+});
+
+document.getElementById("cam-toggle").addEventListener("click", async () => {
+  if (state.camOff && !state.videoTrack) {
+    // Try to acquire camera
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 } },
+      });
+      state.videoTrack = camStream.getVideoTracks()[0];
+      state.localStream.addTrack(state.videoTrack);
+
+      // Add video track to all peer connections and renegotiate so remote peers receive it
+      for (const [peerId, peer] of Object.entries(state.peers)) {
+        peer.pc.addTrack(state.videoTrack, state.localStream);
+        const offer = await peer.pc.createOffer();
+        await peer.pc.setLocalDescription(offer);
+        state.ws.send(JSON.stringify({
+          type: "signal",
+          targetId: peerId,
+          signal: { sdp: peer.pc.localDescription },
+        }));
+      }
+
+      state.camOff = false;
+
+      // Update local tile
+      const localTile = document.getElementById("tile-local");
+      if (localTile) {
+        const video = localTile.querySelector("video");
+        video.srcObject = state.localStream;
+        localTile.classList.remove("no-video");
+      }
+    } catch (e) {
+      showToast("Could not access camera", "error");
+      return;
+    }
+  } else if (state.videoTrack) {
+    state.camOff = !state.camOff;
+    state.videoTrack.enabled = !state.camOff;
+
+    const localTile = document.getElementById("tile-local");
+    if (localTile) {
+      localTile.classList.toggle("no-video", state.camOff);
+    }
+  }
+
+  const btn = document.getElementById("cam-toggle");
+  btn.classList.toggle("muted", state.camOff);
+    btn.innerHTML = state.camOff ? '<img class="btn-icon" src="icons/video-off.webp">' : '<img class="btn-icon" src="icons/video-on.webp">';
+});
+
+// Downloads
+document.getElementById("downloads-btn").addEventListener("click", () => {
+  showDownloads();
+});
+
+document.getElementById("downloads-close").addEventListener("click", () => {
+  document.getElementById("downloads-panel").classList.remove("active");
+});
+
+function showDownloads() {
+  const list = document.getElementById("downloads-list");
+  list.innerHTML = "";
+
+  // ── Local recordings (in-browser) ──
+  if (state.recordings.length > 0) {
+    const localTitle = document.createElement("div");
+    localTitle.className = "downloads-section-title";
+    localTitle.textContent = "Local (in-browser)";
+    list.appendChild(localTitle);
+
+    state.recordings.forEach((rec, i) => {
+      const mins = Math.floor(rec.duration / 60);
+      const secs = Math.floor(rec.duration % 60);
+      const size = (rec.blob.size / (1024 * 1024)).toFixed(1);
+
+      const item = document.createElement("div");
+      item.className = "download-item";
+      item.innerHTML = `
+        <div>
+          <span>${rec.name}</span><br/>
+          <span class="dl-meta">${mins}m ${secs}s · ${size} MB · WebM/Opus</span>
+        </div>
+        <a href="#" id="dl-${i}">Download</a>
+      `;
+      list.appendChild(item);
+
+      item.querySelector(`#dl-${i}`).addEventListener("click", (e) => {
+        e.preventDefault();
+        const url = URL.createObjectURL(rec.blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${rec.name}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    });
+  }
+
+  // ── Server recordings (if host and session exists) ──
+  if (state.sessionId) {
+    const serverTitle = document.createElement("div");
+    serverTitle.className = "downloads-section-title";
+    serverTitle.textContent = "Server (all participants)";
+    list.appendChild(serverTitle);
+
+    const loadingItem = document.createElement("div");
+    loadingItem.className = "download-item";
+    loadingItem.innerHTML = '<span style="color:var(--text-dim)">Loading server recordings…</span>';
+    list.appendChild(loadingItem);
+
+    // Fetch server recordings asynchronously
+    fetch(`/api/sessions/${state.sessionId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        loadingItem.remove();
+
+        if (!data.files || data.files.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "download-item";
+          empty.innerHTML = '<span style="color:var(--text-dim)">No finalized recordings yet</span>';
+          list.appendChild(empty);
+          return;
+        }
+
+        data.files.forEach((file) => {
+          const size = (file.size / (1024 * 1024)).toFixed(1);
+          const item = document.createElement("div");
+          item.className = "download-item";
+          item.innerHTML = `
+            <div>
+              <span>${file.filename}</span><br/>
+              <span class="dl-meta">${size} MB · server backup</span>
+            </div>
+            <a href="${file.downloadUrl}" download="${file.filename}">Download</a>
+          `;
+          list.appendChild(item);
+        });
+      })
+      .catch(() => {
+        loadingItem.innerHTML = '<span style="color:var(--text-dim)">Could not load server recordings</span>';
+      });
+  } else if (state.recordings.length === 0) {
+    list.innerHTML = '<div class="download-item"><span style="color:var(--text-dim)">No recordings yet</span></div>';
+  }
+
+  document.getElementById("downloads-panel").classList.add("active");
+}
+
+// Leave
+document.getElementById("leave-btn").addEventListener("click", () => {
+  if (state.isRecording) {
+    if (!confirm("You are still recording. Leave anyway?")) return;
+    stopRecording();
+  }
+
+  window.removeEventListener("beforeunload", handleBeforeUnload);
+
+  // Cleanup
+  if (state.localStream) {
+    state.localStream.getTracks().forEach((t) => t.stop());
+  }
+  for (const [id] of Object.entries(state.peers)) {
+    removePeer(id);
+  }
+  if (state.isHost && state.ws && state.ws.readyState === WebSocket.OPEN) {
+    state.ws.send(JSON.stringify({ type: "host-left" }));
+  }
+  if (state.ws) state.ws.close();
+
+  // Save recordings to localStorage for returning user access
+  if (state.recordings.length > 0) {
+    saveRecordingsToLocal();
+    showPostSession();
+  } else {
+    // Back to lobby
+    document.getElementById("studio").classList.remove("active");
+    document.getElementById("lobby").style.display = "flex";
+    showLobbyRecordings();
+  }
+});
+
+function saveRecordingsToLocal() {
+  const stored = JSON.parse(localStorage.getItem("podcast-studio-local-recordings") || "[]");
+
+  state.recordings.forEach((rec) => {
+    // Convert blob to data URL for localStorage persistence
+    const reader = new FileReader();
+    reader.onload = () => {
+      stored.push({
+        name: rec.name,
+        date: new Date().toLocaleDateString(),
+        size: rec.blob.size,
+        dataUrl: reader.result,
+      });
+      // Keep only last 20 recordings to avoid localStorage overflow
+      while (stored.length > 20) stored.shift();
+      localStorage.setItem("podcast-studio-local-recordings", JSON.stringify(stored));
+    };
+    reader.readAsDataURL(rec.blob);
+  });
+}
+
+function showPostSession() {
+  const list = document.getElementById("post-session-list");
+  list.innerHTML = "";
+
+  state.recordings.forEach((rec, i) => {
+    const mins = Math.floor(rec.duration / 60);
+    const secs = Math.floor(rec.duration % 60);
+    const size = (rec.blob.size / (1024 * 1024)).toFixed(1);
+
+    const item = document.createElement("div");
+    item.className = "download-item";
+    item.innerHTML = `
+      <div>
+        <span>${rec.name}</span><br/>
+        <span class="dl-meta">${mins}m ${secs}s · ${size} MB</span>
+      </div>
+      <a href="#" id="post-dl-${i}" style="color:var(--accent); text-decoration:none; font-weight:600; font-size:0.85rem;">Download</a>
+    `;
+    list.appendChild(item);
+
+    item.querySelector(`#post-dl-${i}`).addEventListener("click", (e) => {
+      e.preventDefault();
+      const url = URL.createObjectURL(rec.blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${rec.name}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  });
+
+  document.getElementById("studio").classList.remove("active");
+  document.getElementById("post-session-panel").classList.add("active");
+}
+
+document.getElementById("post-session-close").addEventListener("click", () => {
+  document.getElementById("post-session-panel").classList.remove("active");
+  document.getElementById("lobby").style.display = "flex";
+  showLobbyRecordings();
+});
+
+// ═══════════════════════════════════════════════
+//  RECORDINGS MANAGEMENT (host only)
+// ═══════════════════════════════════════════════
+document.getElementById("recordings-mgmt-btn").addEventListener("click", () => {
+  loadRecordingsManagement();
+});
+
+document.getElementById("recordings-mgmt-close").addEventListener("click", () => {
+  document.getElementById("recordings-mgmt-panel").classList.remove("active");
+});
+
+async function loadRecordingsManagement() {
+  const list = document.getElementById("recordings-mgmt-list");
+  list.innerHTML = '<div class="download-item"><span style="color:var(--text-dim)">Loading…</span></div>';
+  document.getElementById("recordings-mgmt-panel").classList.add("active");
+
+  try {
+    const res = await fetch("/api/recordings");
+    const data = await res.json();
+
+    list.innerHTML = "";
+
+    if (data.sessions.length === 0) {
+      list.innerHTML = '<div class="download-item"><span style="color:var(--text-dim)">No recordings on server</span></div>';
+      return;
+    }
+
+    data.sessions.forEach((session) => {
+      const sessionDiv = document.createElement("div");
+      sessionDiv.style.cssText = "margin-bottom:1rem; border:1px solid var(--border); border-radius:8px; overflow:hidden;";
+
+      // Session header
+      const date = session.startedAt ? new Date(session.startedAt).toLocaleString() : "Unknown date";
+      const totalMB = (session.totalSize / (1024 * 1024)).toFixed(1);
+      const participants = session.participants.map((p) => p.username).join(", ") || "Unknown";
+
+      const header = document.createElement("div");
+      header.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0.75rem; background:var(--surface-2); cursor:pointer;";
+      header.innerHTML = `
+        <div>
+          <div style="font-size:0.85rem; font-weight:600;">${date}</div>
+          <div style="font-size:0.72rem; color:var(--text-dim);">${participants} · ${session.files.length} files · ${totalMB} MB</div>
+        </div>
+        <button class="btn-small session-delete-btn" style="font-size:0.72rem; color:var(--accent);">Delete All</button>
+      `;
+
+      const filesDiv = document.createElement("div");
+      filesDiv.style.cssText = "padding:0.25rem 0.5rem;";
+
+      session.files.forEach((file) => {
+        const size = (file.size / (1024 * 1024)).toFixed(1);
+        const fileItem = document.createElement("div");
+        fileItem.className = "download-item";
+        fileItem.style.marginBottom = "0.25rem";
+        fileItem.innerHTML = `
+          <div>
+            <span style="font-size:0.82rem;">${file.filename}</span>
+            <span class="dl-meta" style="margin-left:0.5rem;">${size} MB</span>
+          </div>
+          <div style="display:flex; gap:0.75rem;">
+            <a href="${file.downloadUrl}" download="${file.filename}" style="color:var(--accent); text-decoration:none; font-weight:600; font-size:0.82rem;">Download</a>
+            <a href="#" class="file-delete-btn" data-url="${file.downloadUrl}" style="color:var(--text-dim); text-decoration:none; font-size:0.82rem;">✕</a>
+          </div>
+        `;
+        filesDiv.appendChild(fileItem);
+      });
+
+      sessionDiv.appendChild(header);
+      sessionDiv.appendChild(filesDiv);
+      list.appendChild(sessionDiv);
+
+      // Delete entire session
+      header.querySelector(".session-delete-btn").addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm("Delete this entire recording session?")) return;
+        await fetch(`/api/sessions/${session.sessionId}`, { method: "DELETE" });
+        loadRecordingsManagement();
+      });
+
+      // Delete individual files
+      filesDiv.querySelectorAll(".file-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          await fetch(btn.dataset.url, { method: "DELETE" });
+          loadRecordingsManagement();
+        });
+      });
+    });
+  } catch (e) {
+    list.innerHTML = `<div class="download-item"><span style="color:var(--accent)">Error: ${e.message}</span></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  AUDIO/VIDEO SETTINGS PANEL
+// ═══════════════════════════════════════════════
+document.getElementById("settings-btn").addEventListener("click", () => {
+  // Sync studio selects with current state
+  enumerateDevices();
+  document.getElementById("settings-panel").classList.add("active");
+});
+
+document.getElementById("settings-close").addEventListener("click", () => {
+  document.getElementById("settings-panel").classList.remove("active");
+});
+
+// Set audio output on all audio/video elements
+function setAudioOutput(deviceId) {
+  document.querySelectorAll("audio, video").forEach((el) => {
+    if (typeof el.setSinkId === "function") {
+      el.setSinkId(deviceId || "").catch(() => {});
+    }
+  });
+}
+
+// Create a dedicated audio element for soundboard/sync output
+// This bridges the AudioContext to a regular <audio> element that supports setSinkId
+let soundboardOutputNode = null;
+let soundboardOutputEl = null;
+
+function getSoundboardOutput() {
+  if (!state.audioContext) return null;
+  if (!soundboardOutputNode) {
+    soundboardOutputNode = state.audioContext.createMediaStreamDestination();
+    soundboardOutputEl = document.createElement("audio");
+    soundboardOutputEl.autoplay = true;
+    soundboardOutputEl.srcObject = soundboardOutputNode.stream;
+    soundboardOutputEl.classList.add("soundboard-output");
+    document.body.appendChild(soundboardOutputEl);
+
+    // Apply current output selection
+    const outputId = document.getElementById("speaker-select").value;
+    if (outputId && typeof soundboardOutputEl.setSinkId === "function") {
+      soundboardOutputEl.setSinkId(outputId).catch(() => {});
+    }
+  }
+  return soundboardOutputNode;
+}
+
+// Apply output selection from lobby
+document.getElementById("speaker-select").addEventListener("change", (e) => {
+  setAudioOutput(e.target.value);
+  // Sync studio select
+  const studioSpeaker = document.getElementById("studio-speaker-select");
+  if (studioSpeaker) studioSpeaker.value = e.target.value;
+});
+
+// Live device switching in studio
+document.getElementById("studio-speaker-select").addEventListener("change", (e) => {
+  setAudioOutput(e.target.value);
+  document.getElementById("speaker-select").value = e.target.value;
+});
+
+document.getElementById("studio-mic-select").addEventListener("change", async (e) => {
+  const deviceId = e.target.value;
+  if (!deviceId || !state.localStream) return;
+
+  try {
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true },
+    });
+
+    const newTrack = newStream.getAudioTracks()[0];
+    const oldTrack = state.localStream.getAudioTracks()[0];
+
+    // Replace track in local stream
+    state.localStream.removeTrack(oldTrack);
+    state.localStream.addTrack(newTrack);
+    oldTrack.stop();
+
+    // Replace track in all peer connections
+    for (const [, peer] of Object.entries(state.peers)) {
+      const sender = peer.pc.getSenders().find((s) => s.track && s.track.kind === "audio");
+      if (sender) await sender.replaceTrack(newTrack);
+    }
+
+    // Mute state carries over
+    newTrack.enabled = !state.micMuted;
+
+    // Re-setup audio analysis
+    setupAudioAnalysis();
+
+    // Sync lobby select
+    document.getElementById("mic-select").value = deviceId;
+
+    showToast("Microphone switched", "success");
+  } catch (err) {
+    showToast("Could not switch microphone: " + err.message, "error");
+  }
+});
+
+document.getElementById("studio-cam-select").addEventListener("change", async (e) => {
+  const deviceId = e.target.value;
+
+  if (!deviceId) {
+    // Turn off camera
+    if (state.videoTrack) {
+      state.videoTrack.enabled = false;
+      state.camOff = true;
+      const localTile = document.getElementById("tile-local");
+      if (localTile) localTile.classList.add("no-video");
+    }
+    return;
+  }
+
+  try {
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } },
+    });
+
+    const newVideoTrack = newStream.getVideoTracks()[0];
+
+    if (state.videoTrack) {
+      // Replace existing video track
+      state.localStream.removeTrack(state.videoTrack);
+      state.videoTrack.stop();
+    }
+
+    state.localStream.addTrack(newVideoTrack);
+    state.videoTrack = newVideoTrack;
+    state.camOff = false;
+
+    // Replace in peer connections
+    for (const [peerId, peer] of Object.entries(state.peers)) {
+      const sender = peer.pc.getSenders().find((s) => s.track && s.track.kind === "video");
+      if (sender) {
+        await sender.replaceTrack(newVideoTrack);
+      } else {
+        // No existing video sender — addTrack requires renegotiation for remote to receive it
+        peer.pc.addTrack(newVideoTrack, state.localStream);
+        const offer = await peer.pc.createOffer();
+        await peer.pc.setLocalDescription(offer);
+        state.ws.send(JSON.stringify({
+          type: "signal",
+          targetId: peerId,
+          signal: { sdp: peer.pc.localDescription },
+        }));
+      }
+    }
+
+    // Update local tile
+    const localTile = document.getElementById("tile-local");
+    if (localTile) {
+      const video = localTile.querySelector("video");
+      video.srcObject = state.localStream;
+      localTile.classList.remove("no-video");
+    }
+
+    // Sync lobby select
+    document.getElementById("cam-select").value = deviceId;
+
+    showToast("Camera switched", "success");
+  } catch (err) {
+    showToast("Could not switch camera: " + err.message, "error");
+  }
+});
+
+// ═══════════════════════════════════════════════
+//  SIDEBAR & TABS
+// ═══════════════════════════════════════════════
+document.getElementById("sidebar-toggle").addEventListener("click", () => {
+  const sidebar = document.getElementById("sidebar");
+  sidebar.classList.toggle("active");
+  // Load server clips on first open
+  if (sidebar.classList.contains("active") && serverClips.length === 0) {
+    loadServerClips();
+  }
+});
+
+// Sidebar resize drag
+(() => {
+  const handle = document.getElementById("sidebar-resize-handle");
+  const sidebar = document.getElementById("sidebar");
+  let startX, startWidth;
+
+  handle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startWidth = sidebar.offsetWidth;
+    sidebar.classList.add("resizing");
+    document.addEventListener("mousemove", onDrag);
+    document.addEventListener("mouseup", onRelease);
+  });
+
+  function onDrag(e) {
+    // Dragging left makes sidebar wider (sidebar is on the right)
+    const delta = startX - e.clientX;
+    const newWidth = Math.min(Math.max(startWidth + delta, 280), window.innerWidth * 0.7);
+    sidebar.style.width = `${newWidth}px`;
+  }
+
+  function onRelease() {
+    sidebar.classList.remove("resizing");
+    document.removeEventListener("mousemove", onDrag);
+    document.removeEventListener("mouseup", onRelease);
+  }
+})();
+
+document.querySelectorAll(".sidebar-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".sidebar-tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".sidebar-panel").forEach((p) => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById(`panel-${tab.dataset.tab}`).classList.add("active");
+  });
+});
+
+// ═══════════════════════════════════════════════
+//  SOUNDBOARD — Local clips + server clip library
+// ═══════════════════════════════════════════════
+const clips = []; // local clips: { name, buffer, duration, sourceNode, playing, volume, ... }
+
+// ── Server clip library ──
+let serverClips = [];
+
+async function loadServerClips() {
+  const container = document.getElementById("server-clip-list");
+  try {
+    const res = await fetch("/api/clips");
+    const data = await res.json();
+    serverClips = data.clips || [];
+    renderServerClipList();
+  } catch {
+    container.innerHTML = '<div class="panel-empty" style="padding:0.5rem; font-size:0.78rem;">Could not load clips</div>';
+  }
+}
+
+function renderServerClipList() {
+  const container = document.getElementById("server-clip-list");
+
+  if (serverClips.length === 0) {
+    container.innerHTML = '<div class="panel-empty" style="padding:0.5rem; font-size:0.78rem;">No server clips yet</div>';
+    return;
+  }
+
+  container.innerHTML = "";
+
+  // Group by category
+  const groups = {};
+  serverClips.forEach((c) => {
+    const cat = c.category || "general";
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(c);
+  });
+
+  for (const [cat, catClips] of Object.entries(groups).sort((a, b) => {
+    const order = ["intro", "outro", "bumper", "sfx", "general"];
+    return (order.indexOf(a[0]) === -1 ? 99 : order.indexOf(a[0])) - (order.indexOf(b[0]) === -1 ? 99 : order.indexOf(b[0]));
+  })) {
+    const catLabel = document.createElement("div");
+    catLabel.style.cssText = "font-size:0.65rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dim); padding:0.35rem 0.5rem 0.15rem;";
+    catLabel.textContent = cat;
+    container.appendChild(catLabel);
+
+    catClips.forEach((sc) => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex; align-items:center; gap:0.4rem; padding:0.3rem 0.5rem; font-size:0.8rem;";
+      row.innerHTML = `
+        <button class="clip-play-btn" style="width:26px;height:26px;font-size:0.7rem;" data-url="${sc.url}" data-name="${sc.name}">▶</button>
+        <span class="clip-server-name" style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Double-click to rename">${sc.name}</span>
+        ${state.role === "host" ? `<button class="clip-rename-btn" data-clip-id="${sc.id}" data-clip-name="${sc.name}" title="Rename" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.75rem;opacity:0.5;flex-shrink:0;">✎</button>` : ""}
+        ${state.role === "host" ? `<button class="clip-remove-btn" data-clip-id="${sc.id}" title="Delete from server">✕</button>` : ""}
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  // Play buttons for server clips
+  container.querySelectorAll(".clip-play-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const url = btn.dataset.url;
+      const name = btn.dataset.name;
+
+      // Check if already loaded locally
+      let existing = clips.find((c) => c.name === name && c.isServer);
+      if (!existing) {
+        // Fetch and decode
+        try {
+          btn.textContent = "…";
+          const res = await fetch(url);
+          const arrayBuffer = await res.arrayBuffer();
+          const audioBuffer = await state.audioContext.decodeAudioData(arrayBuffer);
+          existing = {
+            name,
+            buffer: audioBuffer,
+            duration: audioBuffer.duration,
+            sourceNode: null,
+            playing: false,
+            volume: 0.8,
+            isServer: true,
+          };
+          clips.push(existing);
+          renderClipList();
+        } catch {
+          showToast(`Could not load "${name}"`, "error");
+          btn.textContent = "▶";
+          return;
+        }
+      }
+
+      const idx = clips.indexOf(existing);
+      toggleClip(idx);
+      btn.textContent = existing.playing ? "■" : "▶";
+    });
+  });
+
+  // Delete buttons (host only)
+  container.querySelectorAll(".clip-remove-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm(`Delete "${btn.parentElement.querySelector(".clip-server-name").textContent}" from server?`)) return;
+      await fetch(`/api/clips/${btn.dataset.clipId}`, { method: "DELETE" });
+      loadServerClips();
+    });
+  });
+
+  // Rename buttons (host only)
+  container.querySelectorAll(".clip-rename-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const clipId = btn.dataset.clipId;
+      const currentName = btn.dataset.clipName;
+      const newName = prompt("Rename clip:", currentName);
+      if (!newName || newName.trim() === "" || newName === currentName) return;
+      try {
+        const res = await fetch(`/api/clips/${clipId}/rename`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: newName.trim() }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`Renamed to "${newName.trim()}"`, "success");
+          loadServerClips();
+        } else {
+          showToast(data.error || "Rename failed", "error");
+        }
+      } catch {
+        showToast("Could not rename clip", "error");
+      }
+    });
+  });
+}
+
+// Load server clips when audio context is ready (after joining)
+// We'll call loadServerClips() once the sidebar is opened
+
+// ── Local clip upload ──
+document.getElementById("clip-add-btn").addEventListener("click", () => {
+  document.getElementById("clip-file-input").click();
+});
+
+document.getElementById("clip-file-input").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files);
+  const saveToServer = document.getElementById("save-clip-to-server").checked;
+  const category = document.getElementById("clip-category").value;
+
+  for (const file of files) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const audioBuffer = await state.audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+      const clipName = file.name.replace(/\.[^.]+$/, "");
+
+      clips.push({
+        name: clipName,
+        buffer: audioBuffer,
+        rawBuffer: arrayBuffer,
+        mimeType: file.type,
+        duration: audioBuffer.duration,
+        sourceNode: null,
+        playing: false,
+        volume: 0.8,
+        isServer: false,
+      });
+
+      // Upload to server if checkbox is checked
+      if (saveToServer) {
+        const metaStr = JSON.stringify({ name: clipName, category, mimeType: file.type });
+        const metaBytes = new TextEncoder().encode(metaStr + "\n");
+        const fileBytes = new Uint8Array(arrayBuffer);
+        const combined = new Uint8Array(metaBytes.length + fileBytes.length);
+        combined.set(metaBytes, 0);
+        combined.set(fileBytes, metaBytes.length);
+
+        fetch("/api/clips", { method: "POST", body: combined })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.ok) {
+              showToast(`"${clipName}" saved to server library`, "success");
+              loadServerClips();
+            }
+          })
+          .catch(() => showToast(`Failed to save "${clipName}" to server`, "error"));
+      }
+    } catch (err) {
+      showToast(`Could not load "${file.name}"`, "error");
+    }
+  }
+  renderClipList();
+  e.target.value = "";
+});
+
+function renderClipList() {
+  const list = document.getElementById("clip-list");
+
+  if (clips.length === 0) {
+    list.innerHTML = '<div class="panel-empty">No local clips loaded</div>';
+    return;
+  }
+
+  list.innerHTML = "";
+  clips.forEach((clip, i) => {
+    const mins = Math.floor(clip.duration / 60);
+    const secs = Math.floor(clip.duration % 60);
+    const isHost = state.role === "host";
+
+    const item = document.createElement("div");
+    item.className = `clip-item${clip.playing ? " playing" : ""}`;
+    item.id = `clip-${i}`;
+
+    const sharedByLabel = clip.sharedBy
+      ? ` <span style="font-size:0.6rem;color:var(--amber);">↑ from ${clip.sharedBy}</span>`
+      : "";
+    const serverLabel = clip.isServer
+      ? ' <span style="font-size:0.6rem;color:var(--text-dim);">☁</span>'
+      : "";
+
+    let actionBtn;
+    if (isHost) {
+      actionBtn = `<button class="clip-play-btn" data-idx="${i}">${clip.playing ? "■" : "▶"}</button>`;
+    } else if (clip.queued) {
+      actionBtn = `<button class="clip-queue-btn" data-idx="${i}" disabled title="Queued for host">✓</button>`;
+    } else {
+      actionBtn = `<button class="clip-queue-btn" data-idx="${i}" title="Send to host queue">↑</button>`;
+    }
+
+    const queuedBadge = (!isHost && clip.queued)
+      ? `<span class="clip-queued-badge">QUEUED</span>`
+      : "";
+
+    item.innerHTML = `
+      ${actionBtn}
+      <div class="clip-info">
+        <div class="clip-name">${clip.name}${serverLabel}${sharedByLabel}</div>
+        <div style="display:flex;align-items:center;gap:0.4rem;">
+          <span class="clip-duration">${mins}:${String(secs).padStart(2, "0")}</span>
+          ${queuedBadge}
+        </div>
+        <div class="clip-progress"><div class="clip-progress-fill" id="clip-prog-${i}"></div></div>
+      </div>
+      <input type="range" class="clip-volume" min="0" max="100" value="${clip.volume * 100}" data-idx="${i}" title="Volume" />
+      <button class="clip-remove-btn" data-idx="${i}">✕</button>
+    `;
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll(".clip-play-btn").forEach((btn) => {
+    btn.addEventListener("click", () => toggleClip(parseInt(btn.dataset.idx)));
+  });
+
+  list.querySelectorAll(".clip-queue-btn:not([disabled])").forEach((btn) => {
+    btn.addEventListener("click", () => shareClipWithHost(parseInt(btn.dataset.idx)));
+  });
+
+  list.querySelectorAll(".clip-volume").forEach((slider) => {
+    slider.addEventListener("input", (e) => {
+      const idx = parseInt(e.target.dataset.idx);
+      clips[idx].volume = e.target.value / 100;
+      if (clips[idx].gainNode) clips[idx].gainNode.gain.value = clips[idx].volume;
+    });
+  });
+
+  list.querySelectorAll(".clip-remove-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx);
+      if (clips[idx].playing) stopClip(idx);
+      clips.splice(idx, 1);
+      renderClipList();
+    });
+  });
+}
+
+function toggleClip(idx) {
+  if (clips[idx].playing) {
+    stopClip(idx);
+  } else {
+    playClip(idx);
+  }
+}
+
+function playClip(idx) {
+  const clip = clips[idx];
+  if (!state.audioContext) return;
+
+  const source = state.audioContext.createBufferSource();
+  source.buffer = clip.buffer;
+
+  const gainNode = state.audioContext.createGain();
+  gainNode.gain.value = clip.volume;
+  source.connect(gainNode);
+
+  // Local playback via soundboard output element (respects setSinkId)
+  const sbOut = getSoundboardOutput();
+  if (sbOut) {
+    gainNode.connect(sbOut);
+  } else {
+    gainNode.connect(state.audioContext.destination);
+  }
+
+  // Always route to peers and recording
+  if (state.peerOutputDest) gainNode.connect(state.peerOutputDest);
+  if (state.recordingDest)  gainNode.connect(state.recordingDest);
+  if (state.mixDest)        gainNode.connect(state.mixDest);
+
+  clip.sourceNode = source;
+  clip.gainNode = gainNode;
+  clip.playing = true;
+  clip.startTime = state.audioContext.currentTime;
+
+  source.onended = () => {
+    clip.playing = false;
+    try { source.disconnect(); } catch {}
+    if (clip.gainNode) {
+      try { clip.gainNode.disconnect(); } catch {}
+    }
+    clip.sourceNode = null;
+    clip.gainNode = null;
+    renderClipList();
+  };
+
+  source.start(0);
+  renderClipList();
+  animateClipProgress(idx);
+}
+
+function stopClip(idx) {
+  const clip = clips[idx];
+  if (clip.sourceNode) {
+    try { clip.sourceNode.stop(); } catch {}
+    try { clip.sourceNode.disconnect(); } catch {}
+    clip.sourceNode = null;
+  }
+  if (clip.gainNode) {
+    try { clip.gainNode.disconnect(); } catch {}
+    clip.gainNode = null;
+  }
+  clip.playing = false;
+  renderClipList();
+}
+
+function shareClipWithHost(idx) {
+  const clip = clips[idx];
+  if (!clip.rawBuffer) {
+    showToast("Cannot share this clip (no source data)", "error");
+    return;
+  }
+  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+    showToast("Not connected", "error");
+    return;
+  }
+
+  const uint8 = new Uint8Array(clip.rawBuffer);
+  let binary = "";
+  // encode in chunks to avoid stack overflow on large buffers
+  const chunkSize = 8192;
+  for (let i = 0; i < uint8.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, uint8.subarray(i, i + chunkSize));
+  }
+  const audioData = btoa(binary);
+
+  state.ws.send(JSON.stringify({
+    type: "clip-share-request",
+    clipName: clip.name,
+    mimeType: clip.mimeType || "audio/mpeg",
+    audioData,
+  }));
+
+  clip.queued = true;
+  renderClipList();
+  showToast(`"${clip.name}" queued for host`, "success");
+}
+
+async function handleClipShareRequest(msg) {
+  showToast(`${msg.fromUsername} queued a clip: "${msg.clipName}" — ready to play`, "info");
+
+  try {
+    const binary = atob(msg.audioData);
+    const arrayBuffer = new ArrayBuffer(binary.length);
+    const uint8 = new Uint8Array(arrayBuffer);
+    for (let i = 0; i < binary.length; i++) {
+      uint8[i] = binary.charCodeAt(i);
+    }
+
+    const audioBuffer = await state.audioContext.decodeAudioData(arrayBuffer);
+    clips.push({
+      name: msg.clipName,
+      buffer: audioBuffer,
+      rawBuffer: null,
+      mimeType: msg.mimeType,
+      duration: audioBuffer.duration,
+      sourceNode: null,
+      playing: false,
+      volume: 0.8,
+      isServer: false,
+      sharedBy: msg.fromUsername,
+    });
+    renderClipList();
+    showToast(`"${msg.clipName}" added to your soundboard`, "success");
+  } catch {
+    showToast(`Failed to decode shared clip "${msg.clipName}"`, "error");
+  }
+}
+
+function animateClipProgress(idx) {
+  const clip = clips[idx];
+  if (!clip.playing) return;
+
+  const elapsed = state.audioContext.currentTime - clip.startTime;
+  const pct = Math.min((elapsed / clip.duration) * 100, 100);
+
+  const fill = document.getElementById(`clip-prog-${idx}`);
+  if (fill) fill.style.width = `${pct}%`;
+
+  if (pct < 100 && clip.playing) {
+    requestAnimationFrame(() => animateClipProgress(idx));
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  CHAT
+// ═══════════════════════════════════════════════
+function appendChatMessage(username, text, isMe) {
+  const messages = document.getElementById("chat-messages");
+
+  const meta = document.createElement("div");
+  meta.className = `chat-bubble-meta ${isMe ? "mine" : "theirs"}`;
+  meta.textContent = isMe ? "You" : username;
+
+  const bubble = document.createElement("div");
+  bubble.className = `chat-bubble ${isMe ? "mine" : "theirs"}`;
+  bubble.textContent = text;
+
+  messages.appendChild(meta);
+  messages.appendChild(bubble);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+const chatInput = document.getElementById("chat-input");
+const chatSendBtn = document.getElementById("chat-send-btn");
+
+function sendChatMessage() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+    showToast("Not connected", "error");
+    return;
+  }
+  state.ws.send(JSON.stringify({ type: "chat", text }));
+  chatInput.value = "";
+}
+
+chatSendBtn.addEventListener("click", sendChatMessage);
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
+});
+
+// ═══════════════════════════════════════════════
+//  PREP NOTES PANEL
+// ═══════════════════════════════════════════════
+(function () {
+  const gameSelect  = document.getElementById("pn-game-select");
+  const refreshBtn  = document.getElementById("pn-refresh-btn");
+  const tabBar      = document.getElementById("pn-tabs");
+  const body        = document.getElementById("pn-body");
+  let currentNotes  = null;
+  let activeTab     = "n-shared";
+
+  const TAB_LABELS = { "n-shared": "Shared Notes", "n-mine": "My Notes" };
+  let myNotes = null;
+
+  async function loadGames() {
+    try {
+      const res = await fetch("/api/prep-notes/games");
+      const games = res.ok ? await res.json() : [];
+      const prev = gameSelect.value;
+      gameSelect.innerHTML = '<option value="">Select episode…</option>';
+      games.forEach(g => {
+        const slug = g.slug ?? g;
+        const label = g.title ?? slug.replace(/_/g, " ");
+        const opt = document.createElement("option");
+        opt.value = slug;
+        opt.textContent = label;
+        gameSelect.appendChild(opt);
+      });
+      if (prev && games.some(g => (g.slug ?? g) === prev)) gameSelect.value = prev;
+    } catch {}
+  }
+
+  function editorBlocksToHtml(blocks) {
+    if (!blocks || !blocks.length) return "";
+    return blocks.map(b => {
+      const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      switch (b.type) {
+        case "header":
+          return `<h${b.data.level || 2}>${b.data.text || ""}</h${b.data.level || 2}>`;
+        case "paragraph":
+          return `<p>${b.data.text || ""}</p>`;
+        case "list": {
+          const tag = b.data.style === "ordered" ? "ol" : "ul";
+          const renderItems = (items, style) => {
+            const t = style === "ordered" ? "ol" : "ul";
+            return items.map(i => {
+              if (typeof i === "string") return `<li>${i}</li>`;
+              const nested = i.items?.length ? renderItems(i.items, style) : "";
+              return `<li>${i.content || ""}${nested ? `<${t}>${nested}</${t}>` : ""}</li>`;
+            }).join("");
+          };
+          return `<${tag}>${renderItems(b.data.items || [], b.data.style)}</${tag}>`;
+        }
+        default:
+          if (b.data?.text) return `<p>${esc(b.data.text)}</p>`;
+          return "";
+      }
+    }).join("");
+  }
+
+  function noteDataToHtml(data) {
+    if (!data) return "";
+    if (data.html != null) return data.html;
+    if (data.blocks) return editorBlocksToHtml(data.blocks);
+    return "";
+  }
+
+  function renderTab() {
+    if (!currentNotes && !myNotes) {
+      body.innerHTML = '<div class="pn-empty">No notes found for this episode.</div>';
+      return;
+    }
+    if (activeTab === "n-mine") {
+      const html = noteDataToHtml(myNotes?.["n-mine"]);
+      if (!html) {
+        body.innerHTML = '<div class="pn-empty">No personal notes for this episode yet.</div>';
+        return;
+      }
+      body.innerHTML = `<div class="pn-blocks">${html}</div>`;
+      return;
+    }
+    const html = noteDataToHtml(currentNotes?.["n-shared"]);
+    if (!html) {
+      body.innerHTML = `<div class="pn-empty">No ${TAB_LABELS[activeTab] || activeTab} notes yet.</div>`;
+      return;
+    }
+    body.innerHTML = `<div class="pn-blocks">${html}</div>`;
+  }
+
+  async function loadNotes(game) {
+    if (!game) {
+      currentNotes = null; myNotes = null;
+      tabBar.style.display = "none";
+      renderTab();
+      return;
+    }
+    body.innerHTML = '<div class="pn-empty">Loading…</div>';
+    try {
+      const privateKey = state.username && state.role ? `${state.username}_${state.role}` : null;
+      const fetches = [fetch(`/api/prep-notes?user=_shared&game=${encodeURIComponent(game)}`)];
+      if (privateKey) fetches.push(fetch(`/api/prep-notes?user=${encodeURIComponent(privateKey)}&game=${encodeURIComponent(game)}`));
+      const [sharedRes, privateRes] = await Promise.all(fetches);
+      currentNotes = sharedRes.ok ? (await sharedRes.json()).notes || null : null;
+      myNotes = (privateRes?.ok) ? (await privateRes.json()).notes || null : null;
+    } catch { currentNotes = null; myNotes = null; }
+    tabBar.style.display = (currentNotes || myNotes) ? "" : "none";
+    renderTab();
+  }
+
+  gameSelect.addEventListener("change", () => loadNotes(gameSelect.value));
+  refreshBtn.addEventListener("click", async () => {
+    await loadGames();
+    await loadNotes(gameSelect.value);
+  });
+
+  tabBar.querySelectorAll(".pn-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      tabBar.querySelectorAll(".pn-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      activeTab = tab.dataset.pntab;
+      renderTab();
+    });
+  });
+
+  // Load episode list when the Prep Notes tab is first clicked
+  document.querySelector('.sidebar-tab[data-tab="prepnotes"]').addEventListener("click", () => {
+    if (gameSelect.options.length <= 1) loadGames();
+  });
+
+  async function autoLoadCurrentGame() {
+    try {
+      const res = await fetch("/api/current-game");
+      if (!res.ok) return;
+      const { game, title } = await res.json();
+      if (!game) return;
+      await loadGames();
+      let opt = Array.from(gameSelect.options).find(o => o.value === game);
+      if (!opt) {
+        opt = document.createElement("option");
+        opt.value = game;
+        opt.textContent = (title || game).replace(/_/g, " ");
+        gameSelect.appendChild(opt);
+      }
+      gameSelect.value = game;
+      await loadNotes(game);
+    } catch {}
+  }
+
+  window._prepNotesAutoLoad = autoLoadCurrentGame;
+})();
+
+// ═══════════════════════════════════════════════
+//  SCREENSHOTS PANEL
+// ═══════════════════════════════════════════════
+function formatStudioTime(secs) {
+  secs = Math.floor(Number(secs) || 0);
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+async function loadStudioScreenshots() {
+  const gameSlug = document.getElementById("pn-game-select")?.value;
+  const grid = document.getElementById("studio-ss-grid");
+  const count = document.getElementById("studio-ss-count");
+  if (!grid) return;
+  if (!gameSlug) {
+    grid.innerHTML = '<div class="panel-empty" style="font-size:.78rem;">Select a game in Prep Notes to view screenshots.</div>';
+    if (count) count.textContent = "";
+    return;
+  }
+  grid.innerHTML = '<div class="panel-empty" style="font-size:.78rem;">Loading…</div>';
+  try {
+    const res = await fetch(`/api/screenshots?game=${encodeURIComponent(gameSlug)}`);
+    const list = res.ok ? await res.json() : [];
+    if (count) count.textContent = list.length ? `(${list.length})` : "";
+    if (!list.length) {
+      grid.innerHTML = '<div class="panel-empty" style="font-size:.78rem;">No screenshots for this game.</div>';
+      return;
+    }
+    grid.innerHTML = [...list].reverse().map(s => `
+      <div class="studio-ss-thumb" data-url="${s.url}">
+        <img src="${s.url}" loading="lazy" alt="">
+        ${s.videoTime != null ? `<div class="studio-ss-time">${formatStudioTime(s.videoTime)}</div>` : ''}
+      </div>
+    `).join('');
+    grid.querySelectorAll('.studio-ss-thumb').forEach(thumb => {
+      thumb.addEventListener('click', () => window.open(thumb.dataset.url, '_blank'));
+    });
+  } catch {
+    grid.innerHTML = '<div class="panel-empty" style="font-size:.78rem;">Could not load screenshots.</div>';
+  }
+}
+
+document.querySelector('.sidebar-tab[data-tab="screenshots"]').addEventListener("click", loadStudioScreenshots);
+
+document.getElementById("pn-game-select")?.addEventListener("change", () => {
+  if (document.getElementById("panel-screenshots")?.classList.contains("active")) {
+    loadStudioScreenshots();
+  }
+});
+
+// ═══════════════════════════════════════════════
+//  TOAST NOTIFICATIONS
+// ═══════════════════════════════════════════════
+function showToast(message, type = "info") {
+  const area = document.getElementById("toast-area");
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  area.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transition = "opacity 0.3s";
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+</script>
+</body>
+</html>
