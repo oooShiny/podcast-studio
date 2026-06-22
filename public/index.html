@@ -3227,14 +3227,57 @@ document.getElementById("sidebar-toggle").addEventListener("click", () => {
   }
 })();
 
-document.querySelectorAll(".sidebar-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".sidebar-tab").forEach((t) => t.classList.remove("active"));
-    document.querySelectorAll(".sidebar-panel").forEach((p) => p.classList.remove("active"));
-    tab.classList.add("active");
-    document.getElementById(`panel-${tab.dataset.tab}`).classList.add("active");
-  });
-});
+function activateSidebarTab(tab) {
+  document.querySelectorAll(".sidebar-tab").forEach((t) => t.classList.remove("active"));
+  document.querySelectorAll(".sidebar-panel").forEach((p) => p.classList.remove("active"));
+  tab.classList.add("active");
+  document.getElementById(`panel-${tab.dataset.tab}`).classList.add("active");
+}
+
+function wireSidebarTab(tab) {
+  tab.addEventListener("click", () => activateSidebarTab(tab));
+}
+
+document.querySelectorAll(".sidebar-tab").forEach(wireSidebarTab);
+
+// ── Plugin sidebar tab registration ──
+// Lets a plugin's tab.js add a new sidebar tab/panel without editing this file.
+window.PodcastStudioPlugins = {
+  registerSidebarTab({ id, label, panelHTML, onMount }) {
+    const tabsContainer = document.querySelector(".sidebar-tabs");
+    const sidebar = document.getElementById("sidebar");
+
+    const tab = document.createElement("button");
+    tab.className = "sidebar-tab";
+    tab.dataset.tab = id;
+    tab.textContent = label;
+    tabsContainer.appendChild(tab);
+    wireSidebarTab(tab);
+
+    const panel = document.createElement("div");
+    panel.className = "sidebar-panel";
+    panel.id = `panel-${id}`;
+    if (panelHTML) panel.innerHTML = panelHTML;
+    sidebar.appendChild(panel);
+
+    if (onMount) onMount(panel);
+  },
+};
+
+// ── Plugin script discovery ──
+// Fetches the enabled plugin list and injects a <script> for each one that
+// ships a tab.js, so new sidebar tabs can be added purely via plugins/.
+fetch("/api/plugins")
+  .then((res) => res.json())
+  .then((plugins) => {
+    for (const plugin of plugins) {
+      if (!plugin.hasTab) continue;
+      const script = document.createElement("script");
+      script.src = `/plugins/${plugin.name}/tab.js`;
+      document.body.appendChild(script);
+    }
+  })
+  .catch((err) => console.error("Failed to load plugins:", err));
 
 // ═══════════════════════════════════════════════
 //  SOUNDBOARD — Local clips + server clip library
