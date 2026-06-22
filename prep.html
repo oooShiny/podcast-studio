@@ -1935,7 +1935,7 @@
     }
 
     function sourceIcon(src) {
-      if (src.type === 'url') return src.embeddable === false ? '↗' : '🔗';
+      if (src.type === 'url') return src.embedUrl ? '▶' : (src.embeddable === false ? '↗' : '🔗');
       if (src.mime?.startsWith('video/')) return '▶';
       if (src.mime?.startsWith('audio/')) return '♪';
       if (src.mime?.startsWith('image/')) return '🖼';
@@ -2219,7 +2219,17 @@
       focalReading.classList.add('active');
 
       if (src.type === 'url') {
-        if (src.embeddable === false) {
+        if (src.embedUrl) {
+          focalReading.innerHTML = `
+            <div class="reading-url-card">
+              <div class="reading-url-domain">${escHtml(src.domain || '')}</div>
+              <div class="reading-url-title">${escHtml(src.name)}</div>
+              ${src.desc ? `<div class="reading-url-desc">${escHtml(src.desc)}</div>` : ''}
+              <a class="reading-url-open" href="${escHtml(src.url)}" target="_blank" rel="noopener">Open in new tab ↗</a>
+            </div>
+            <iframe src="${escHtml(src.embedUrl)}" style="flex:1;min-height:460px;border:none;border-radius:8px;background:#000"
+              allow="autoplay; fullscreen; picture-in-picture; encrypted-media" loading="lazy"></iframe>`;
+        } else if (src.embeddable === false) {
           focalReading.innerHTML = `
             <div class="reading-url-card">
               <div class="reading-url-domain">${escHtml(src.domain || '')}</div>

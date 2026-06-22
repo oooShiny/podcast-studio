@@ -12,6 +12,8 @@ const RECORDINGS_DIR = path.join(__dirname, "recordings");
 const PREP_NOTES_DIR = path.join(__dirname, "prep-notes");
 const PREP_SOURCES_DIR  = path.join(__dirname, "prep-sources");
 const SCREENSHOTS_DIR   = path.join(__dirname, "screenshots");
+const BRANDING_DIR = path.join(__dirname, "branding");
+const STUDIO_SETTINGS_FILE = path.join(__dirname, "studio-settings.json");
 const MAX_BODY = 5 * 1024 * 1024;
 const MAX_SOURCE_BODY = 2 * 1024 * 1024 * 1024; // 2 GB — sources include uploaded video
 
@@ -19,6 +21,7 @@ fs.mkdirSync(RECORDINGS_DIR,  { recursive: true });
 fs.mkdirSync(PREP_NOTES_DIR,  { recursive: true });
 fs.mkdirSync(PREP_SOURCES_DIR, { recursive: true });
 fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+fs.mkdirSync(BRANDING_DIR, { recursive: true });
 
 // ═══════════════════════════════════════════════
 //  PASSWORDS & ROLES
@@ -115,6 +118,20 @@ const server = http.createServer((req, res) => {
   // ── GitHub webhook: POST /webhook ──
   if (req.method === "POST" && req.url === "/webhook") {
     return handleWebhook(req, res);
+  }
+
+  // ── Studio look & feel: GET/PUT /api/studio-settings ──
+  if (req.method === "GET" && req.url === "/api/studio-settings") {
+    return handleGetStudioSettings(req, res);
+  }
+  if (req.method === "PUT" && req.url === "/api/studio-settings") {
+    return handlePutStudioSettings(req, res);
+  }
+  if (req.method === "POST" && req.url === "/api/studio-settings/upload") {
+    return handleUploadBrandingImage(req, res);
+  }
+  if (req.method === "GET" && req.url.startsWith("/api/branding/file/")) {
+    return handleServeBrandingFile(req, res);
   }
 
   // ── Current game: GET/PUT /api/current-game ──
@@ -698,6 +715,164 @@ function handleServeClip(req, res) {
 }
 
 // ═══════════════════════════════════════════════
+//  STUDIO LOOK & FEEL (host-customizable branding)
+// ═══════════════════════════════════════════════
+const DEFAULT_STUDIO_SETTINGS = {
+  brandName: "Podcast Studio",
+  accentColor: "#ef4a52",
+  bgColor: "#024",
+  logoUrl: "",
+  backgroundUrl: "",
+};
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{3,8}$/;
+
+function loadStudioSettings() {
+  try {
+    const data = JSON.parse(fs.readFileSync(STUDIO_SETTINGS_FILE, "utf8"));
+    return { ...DEFAULT_STUDIO_SETTINGS, ...data };
+  } catch {
+    return { ...DEFAULT_STUDIO_SETTINGS };
+  }
+}
+
+function saveStudioSettings(settings) {
+  fs.writeFileSync(STUDIO_SETTINGS_FILE, JSON.stringify(settings, null, 2));
+}
+
+// Removes a previously uploaded branding image once it's replaced or cleared.
+function cleanupBrandingFile(url) {
+  if (url && url.startsWith("/api/branding/file/")) {
+    try { fs.unlinkSync(path.join(BRANDING_DIR, url.split("/").pop())); } catch {}
+  }
+}
+
+function broadcastStudioSettings(settings) {
+  const studioRoom = rooms.get("studio");
+  if (!studioRoom) return;
+  for (const p of studioRoom) {
+    p.ws.send(JSON.stringify({ type: "studio-settings-update", settings }));
+  }
+}
+
+function handleGetStudioSettings(req, res) {
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(loadStudioSettings()));
+}
+
+function handlePutStudioSettings(req, res) {
+  let body = "";
+  req.on("data", (c) => (body += c));
+  req.on("end", () => {
+    try {
+      const { role, brandName, accentColor, bgColor, logoUrl, backgroundUrl } = JSON.parse(body);
+      if (role !== "host") {
+        res.writeHead(403, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Host only" }));
+        return;
+      }
+
+      const current = loadStudioSettings();
+      const next = { ...current };
+
+      if (brandName !== undefined) {
+        next.brandName = String(brandName).trim().slice(0, 60) || DEFAULT_STUDIO_SETTINGS.brandName;
+      }
+      if (accentColor !== undefined && HEX_COLOR_RE.test(accentColor)) next.accentColor = accentColor;
+      if (bgColor !== undefined && HEX_COLOR_RE.test(bgColor)) next.bgColor = bgColor;
+      if (logoUrl !== undefined && logoUrl !== current.logoUrl) {
+        cleanupBrandingFile(current.logoUrl);
+        next.logoUrl = String(logoUrl).slice(0, 300);
+      }
+      if (backgroundUrl !== undefined && backgroundUrl !== current.backgroundUrl) {
+        cleanupBrandingFile(current.backgroundUrl);
+        next.backgroundUrl = String(backgroundUrl).slice(0, 300);
+      }
+
+      saveStudioSettings(next);
+      broadcastStudioSettings(next);
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, settings: next }));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+  });
+}
+
+function handleUploadBrandingImage(req, res) {
+  const chunks = [];
+  let size = 0;
+  const MAX_IMAGE = 8 * 1024 * 1024; // 8 MB
+
+  req.on("data", (chunk) => {
+    size += chunk.length;
+    if (size > MAX_IMAGE) {
+      res.writeHead(413);
+      res.end(JSON.stringify({ error: "Image too large (max 8 MB)" }));
+      req.destroy();
+      return;
+    }
+    chunks.push(chunk);
+  });
+
+  req.on("end", () => {
+    try {
+      const body = Buffer.concat(chunks);
+      const newlineIdx = body.indexOf(10);
+      if (newlineIdx === -1) throw new Error("Invalid format");
+
+      const meta = JSON.parse(body.slice(0, newlineIdx).toString());
+      const imageData = body.slice(newlineIdx + 1);
+
+      const { role, kind, mimeType } = meta;
+      if (role !== "host") throw new Error("Host only");
+      if (kind !== "logo" && kind !== "background") throw new Error("Invalid kind");
+      if (!imageData.length) throw new Error("Empty image");
+
+      const ext = mimeType && mimeType.includes("png") ? ".png"
+        : mimeType && mimeType.includes("webp") ? ".webp"
+        : mimeType && mimeType.includes("gif") ? ".gif"
+        : mimeType && mimeType.includes("svg") ? ".svg"
+        : ".jpg";
+      const filename = `${kind}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
+      fs.writeFileSync(path.join(BRANDING_DIR, filename), imageData);
+
+      const current = loadStudioSettings();
+      const field = kind === "logo" ? "logoUrl" : "backgroundUrl";
+      cleanupBrandingFile(current[field]);
+
+      const next = { ...current, [field]: `/api/branding/file/${filename}` };
+      saveStudioSettings(next);
+      broadcastStudioSettings(next);
+
+      console.log(`  🎨 ${kind} uploaded (${(imageData.length / 1024).toFixed(0)} KB)`);
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, settings: next }));
+    } catch (e) {
+      console.error("Branding upload error:", e.message);
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+  });
+}
+
+function handleServeBrandingFile(req, res) {
+  const filename = decodeURIComponent(req.url.split("/").pop());
+  const safeName = filename.replace(/[^a-zA-Z0-9\-_.]/g, "");
+  const filePath = path.join(BRANDING_DIR, safeName);
+
+  fs.readFile(filePath, (err, data) => {
+    if (err) { res.writeHead(404); res.end("Not found"); return; }
+    const ext = path.extname(safeName).toLowerCase();
+    const mimeTypes = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml" };
+    res.writeHead(200, { "Content-Type": mimeTypes[ext] || "application/octet-stream", "Cache-Control": "max-age=86400" });
+    res.end(data);
+  });
+}
+
+// ═══════════════════════════════════════════════
 //  PREP NOTES (per-user, per-game)
 // ═══════════════════════════════════════════════
 function safeSegment(str, maxLen) {
@@ -1064,6 +1239,76 @@ function handleUploadSource(req, res) {
   req.on("error", () => fail(500, "Upload failed"));
 }
 
+// Recognizes links from common video providers and maps them to the provider's
+// dedicated embeddable player URL — the regular watch/share page is usually blocked
+// from framing, but the /embed/ variant is explicitly designed to be embedded.
+function detectVideoEmbed(url) {
+  let u;
+  try { u = new URL(url); } catch { return null; }
+  const host = u.hostname.replace(/^(www|m|music)\./, "");
+
+  if (host === "youtube.com" || host === "youtube-nocookie.com" || host === "youtu.be") {
+    let id = null;
+    if (host === "youtu.be") {
+      id = u.pathname.slice(1).split("/")[0];
+    } else if (u.pathname === "/watch") {
+      id = u.searchParams.get("v");
+    } else if (/^\/(shorts|embed|live)\//.test(u.pathname)) {
+      id = u.pathname.split("/")[2];
+    }
+    if (!id) return null;
+    const start = parseInt(String(u.searchParams.get("t") || u.searchParams.get("start") || "").replace(/[^0-9]/g, ""), 10);
+    const qs = start > 0 ? `?start=${start}` : "";
+    return { provider: "youtube", embedUrl: `https://www.youtube-nocookie.com/embed/${id}${qs}` };
+  }
+
+  if (host === "vimeo.com" || host === "player.vimeo.com") {
+    const id = u.pathname.split("/").filter(Boolean).pop();
+    if (!id || !/^\d+$/.test(id)) return null;
+    return { provider: "vimeo", embedUrl: `https://player.vimeo.com/video/${id}` };
+  }
+
+  return null;
+}
+
+// Video providers block their oEmbed endpoint from X-Frame-Options sniffing concerns
+// (it's just JSON, never framed) so we can fetch it for a clean title/author without
+// the generic full-page scrape used for ordinary links.
+function addVideoEmbedSource(user, game, url, parsed, videoEmbed, res) {
+  const https = require("https");
+  const oembedUrl = videoEmbed.provider === "youtube"
+    ? `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
+    : `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`;
+
+  const finish = (title, desc) => {
+    const id = crypto.randomBytes(8).toString("hex");
+    const entry = {
+      id, owner: user || "", type: "url", name: title || parsed.hostname, url,
+      embedUrl: videoEmbed.embedUrl, domain: parsed.hostname, desc: (desc || "").slice(0, 200),
+      addedAt: new Date().toISOString(), embeddable: true,
+    };
+    const list = readManifest(game, user);
+    list.push(entry);
+    writeManifest(game, user, list);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(entry));
+  };
+
+  const oReq = https.get(oembedUrl, { timeout: 6000 }, (oRes) => {
+    let data = "";
+    oRes.setEncoding("utf8");
+    oRes.on("data", (c) => { data += c; });
+    oRes.on("end", () => {
+      try {
+        const j = JSON.parse(data);
+        finish(j.title, j.author_name ? `By ${j.author_name}` : "");
+      } catch { finish(null, ""); }
+    });
+  });
+  oReq.on("error", () => finish(null, ""));
+  oReq.on("timeout", () => { oReq.destroy(); finish(null, ""); });
+}
+
 function handleAddUrlSource(req, res) {
   const https = require("https");
   const http2 = require("http");
@@ -1076,6 +1321,9 @@ function handleAddUrlSource(req, res) {
       let parsed;
       try { parsed = new URL(url); } catch { throw new Error("Invalid URL"); }
       if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Only http/https allowed");
+
+      const videoEmbed = detectVideoEmbed(url);
+      if (videoEmbed) return addVideoEmbedSource(user, game, url, parsed, videoEmbed, res);
 
       const fetch = parsed.protocol === "https:" ? https : http2;
       const req2 = fetch.get(url, { headers: { "User-Agent": "PodcastStudio/1.0" }, timeout: 8000 }, (resp) => {
