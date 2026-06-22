@@ -9,10 +9,10 @@ const recordingModule = require("./lib/recording");
 const clipsModule = require("./lib/clips");
 const webhookModule = require("./lib/webhook");
 const prepNotesModule = require("./lib/prep-notes");
-const ocrModule = require("./lib/ocr");
 const prepSourcesModule = require("./lib/prep-sources");
 const screenshotsModule = require("./lib/screenshots");
 const roomsModule = require("./lib/rooms");
+const { loadPlugins } = require("./lib/plugin-loader");
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -29,28 +29,38 @@ for (const dir of Object.values(dirs)) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+const PLUGINS_DATA_DIR = path.join(ROOT, "plugins-data");
+
 const ctx = {
   rootDir: ROOT,
   dirs,
   rooms: roomsModule.rooms,
   broadcast: roomsModule.broadcast,
+  // Plugins get their own storage namespace so they never write into core dirs.
+  pluginDir(name) {
+    const dir = path.join(PLUGINS_DATA_DIR, name);
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  },
 };
 
-const modules = [
+const coreModules = [
   authModule,
   recordingModule,
   clipsModule,
   webhookModule,
   prepNotesModule,
-  ocrModule,
   prepSourcesModule,
   screenshotsModule,
   roomsModule,
 ];
 
-for (const mod of modules) {
+for (const mod of coreModules) {
   if (mod.init) mod.init(ctx);
 }
+
+const plugins = loadPlugins(ctx, path.join(ROOT, "plugins"));
+const modules = [...coreModules, ...plugins];
 
 const routes = modules.flatMap((mod) => mod.routes || []);
 
