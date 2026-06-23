@@ -1,6 +1,6 @@
 {
-  "name": "Podcast Studio",
-  "short_name": "Podcast Studio",
+  "name": "PodStudio",
+  "short_name": "PodStudio",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
