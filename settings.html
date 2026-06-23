@@ -147,6 +147,24 @@
 
   .upload-row { display: flex; align-items: center; gap: 0.6rem; }
 
+  .checkbox-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-transform: none;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .checkbox-row input { accent-color: var(--accent); width: 1rem; height: 1rem; cursor: pointer; }
+
+  .plugin-row { justify-content: space-between; }
+  .plugin-row-name { display: flex; align-items: baseline; gap: 0.5rem; }
+  .plugin-row-version { color: var(--text-dim); font-size: 0.75rem; }
+  .plugin-row-tab { color: var(--text-dim); font-size: 0.7rem; border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.4rem; }
+
   .status-msg { font-size: 0.85rem; margin-top: 0.8rem; min-height: 1.2em; }
   .status-msg.success { color: #34d399; }
   .status-msg.error { color: var(--accent); }
@@ -225,9 +243,20 @@
     </div>
   </div>
 
+  <div class="field">
+    <label>Sidebar Tabs</label>
+    <div class="checkbox-list" id="tabs-list"></div>
+  </div>
+
   <button class="btn btn-primary" id="save-btn">Save Changes</button>
   <button class="btn-small full" id="reset-btn">Reset to Defaults</button>
   <div id="status-msg" class="status-msg"></div>
+</div>
+
+<div id="plugins-card" class="card" style="margin-top:1.5rem; display:none;">
+  <h1>Plugins</h1>
+  <p class="sub">Installed server plugins. Disabling one turns off its routes and sidebar tab immediately — no restart needed.</p>
+  <div class="checkbox-list" id="plugins-list"></div>
 </div>
 
 <script>
@@ -240,10 +269,22 @@ const DEFAULTS = {
   textDimColor: "#8a879a",
   logoUrl: "",
   backgroundUrl: "",
+  disabledTabs: [],
 };
+const CORE_TABS = [
+  { id: "soundboard", label: "Soundboard" },
+  { id: "prepnotes", label: "Prep Notes" },
+  { id: "screenshots", label: "Screenshots" },
+  { id: "notes", label: "Chat" },
+];
 
 let role = null;
 let settings = { ...DEFAULTS };
+let plugins = [];
+
+function escHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 function normalizeHexColor(hex) {
   if (!hex) return null;
@@ -251,6 +292,75 @@ function normalizeHexColor(hex) {
   if (shorthand) return `#${shorthand[1]}${shorthand[1]}${shorthand[2]}${shorthand[2]}${shorthand[3]}${shorthand[3]}`.toLowerCase();
   if (/^#[0-9a-f]{6}$/i.test(hex)) return hex.toLowerCase();
   return null;
+}
+
+function allTabs() {
+  return [...CORE_TABS, ...plugins.filter((p) => p.hasTab).map((p) => ({ id: p.name, label: p.name }))];
+}
+
+function renderTabCheckboxes() {
+  const list = document.getElementById("tabs-list");
+  list.innerHTML = allTabs().map((t) => `
+    <label class="checkbox-row"><input type="checkbox" data-tab-id="${escHtml(t.id)}" checked> ${escHtml(t.label)}</label>
+  `).join("");
+  applyDisabledTabsToCheckboxes();
+}
+
+function applyDisabledTabsToCheckboxes() {
+  const disabled = new Set(settings.disabledTabs || []);
+  document.querySelectorAll("#tabs-list input[type=checkbox]").forEach((cb) => {
+    cb.checked = !disabled.has(cb.dataset.tabId);
+  });
+}
+
+async function fetchPlugins() {
+  try {
+    const res = await fetch("/api/plugins");
+    plugins = res.ok ? await res.json() : [];
+  } catch {
+    plugins = [];
+  }
+  renderTabCheckboxes();
+  renderPluginsList();
+}
+
+function renderPluginsList() {
+  const list = document.getElementById("plugins-list");
+  if (!plugins.length) {
+    list.innerHTML = `<p style="color:var(--text-dim); font-size:0.85rem;">No plugins installed.</p>`;
+    return;
+  }
+  list.innerHTML = plugins.map((p) => `
+    <label class="checkbox-row plugin-row">
+      <span class="plugin-row-name">
+        ${escHtml(p.name)}
+        <span class="plugin-row-version">v${escHtml(p.version)}</span>
+        ${p.hasTab ? `<span class="plugin-row-tab">sidebar tab</span>` : ""}
+      </span>
+      <input type="checkbox" data-plugin-name="${escHtml(p.name)}" ${p.enabled ? "checked" : ""}>
+    </label>
+  `).join("");
+  list.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+    cb.addEventListener("change", () => togglePlugin(cb.dataset.pluginName, cb.checked));
+  });
+}
+
+async function togglePlugin(name, enabledValue) {
+  try {
+    const res = await fetch("/api/plugins/" + encodeURIComponent(name), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, enabled: enabledValue }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Failed");
+    const plugin = plugins.find((p) => p.name === name);
+    if (plugin) plugin.enabled = data.enabled;
+    showStatus(`${name} ${data.enabled ? "enabled" : "disabled"}`, "success");
+  } catch (e) {
+    showStatus("Failed to update plugin: " + e.message, "error");
+    renderPluginsList();
+  }
 }
 
 function setPreview(imgEl, url) {
@@ -284,6 +394,7 @@ function populateForm() {
   document.getElementById("color-text-dim").value = normalizeHexColor(settings.textDimColor) || DEFAULTS.textDimColor;
   setPreview(document.getElementById("logo-preview"), settings.logoUrl);
   setPreview(document.getElementById("bg-preview"), settings.backgroundUrl);
+  applyDisabledTabsToCheckboxes();
 }
 
 async function loadSettings() {
@@ -311,6 +422,12 @@ async function saveSettings(partial) {
 }
 
 document.getElementById("save-btn").addEventListener("click", async () => {
+  const tabCheckboxes = [...document.querySelectorAll("#tabs-list input[type=checkbox]")];
+  const disabledTabs = tabCheckboxes.filter((cb) => !cb.checked).map((cb) => cb.dataset.tabId);
+  if (tabCheckboxes.length && disabledTabs.length === tabCheckboxes.length) {
+    showStatus("At least one sidebar tab must stay enabled", "error");
+    return;
+  }
   try {
     await saveSettings({
       brandName: document.getElementById("brand-name").value.trim() || DEFAULTS.brandName,
@@ -319,6 +436,7 @@ document.getElementById("save-btn").addEventListener("click", async () => {
       surfaceColor: document.getElementById("color-surface").value,
       textColor: document.getElementById("color-text").value,
       textDimColor: document.getElementById("color-text-dim").value,
+      disabledTabs,
     });
     populateForm();
     showStatus("Saved", "success");
@@ -429,7 +547,8 @@ async function attemptUnlock() {
     role = data.role;
     document.getElementById("lock-card").style.display = "none";
     document.getElementById("settings-card").style.display = "block";
-    await loadSettings();
+    document.getElementById("plugins-card").style.display = "block";
+    await Promise.all([loadSettings(), fetchPlugins()]);
   } catch {
     errEl.textContent = "Could not reach server";
     errEl.style.display = "";

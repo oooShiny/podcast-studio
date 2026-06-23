@@ -1586,6 +1586,7 @@ const DEFAULT_STUDIO_SETTINGS = {
   textDimColor: "#8a879a",
   logoUrl: "",
   backgroundUrl: "",
+  disabledTabs: [],
 };
 let studioSettings = { ...DEFAULT_STUDIO_SETTINGS };
 
@@ -1643,6 +1644,22 @@ function applyStudioSettings(settings) {
   if (gridArea) {
     gridArea.style.backgroundImage = studioSettings.backgroundUrl ? `url("${studioSettings.backgroundUrl}")` : "";
     gridArea.classList.toggle("has-bg-image", !!studioSettings.backgroundUrl);
+  }
+
+  applyTabVisibility(studioSettings.disabledTabs);
+}
+
+function applyTabVisibility(disabledTabs) {
+  const disabled = new Set(disabledTabs || []);
+  let activeWasHidden = false;
+  document.querySelectorAll(".sidebar-tab").forEach((tab) => {
+    if (!disabled.has(tab.dataset.tab)) { tab.style.display = ""; return; }
+    tab.style.display = "none";
+    if (tab.classList.contains("active")) activeWasHidden = true;
+  });
+  if (activeWasHidden) {
+    const next = [...document.querySelectorAll(".sidebar-tab")].find((t) => t.style.display !== "none");
+    if (next) activateSidebarTab(next);
   }
 }
 
@@ -3358,6 +3375,9 @@ window.PodcastStudioPlugins = {
     tab.className = "sidebar-tab";
     tab.dataset.tab = id;
     tab.textContent = label;
+    // loadStudioSettings() and this plugin-tab injection race independently,
+    // so check the disabled list directly rather than relying on a later sync pass.
+    if ((studioSettings.disabledTabs || []).includes(id)) tab.style.display = "none";
     tabsContainer.appendChild(tab);
     wireSidebarTab(tab);
 
@@ -3378,7 +3398,7 @@ fetch("/api/plugins")
   .then((res) => res.json())
   .then((plugins) => {
     for (const plugin of plugins) {
-      if (!plugin.hasTab) continue;
+      if (!plugin.hasTab || plugin.enabled === false) continue;
       const script = document.createElement("script");
       script.src = `/plugins/${plugin.name}/tab.js`;
       document.body.appendChild(script);
