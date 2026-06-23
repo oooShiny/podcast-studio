@@ -1333,6 +1333,7 @@
     <button class="btn btn-primary" id="join-btn" disabled>Join Studio</button>
 
     <a href="/prep" style="display:block; margin-top:0.75rem; font-size:0.8rem; color:var(--text-dim); text-decoration:none; opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">Episode Prep →</a>
+    <a href="/settings" style="display:block; margin-top:0.4rem; font-size:0.8rem; color:var(--text-dim); text-decoration:none; opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">Studio Settings →</a>
 
     <!-- Local recordings from previous sessions -->
     <div id="lobby-recordings" style="display:none; margin-top:1.5rem; text-align:left;">
@@ -1371,7 +1372,7 @@
         <button class="ctrl-btn record-btn" id="record-btn" title="Start Recording">REC</button>
         <button class="ctrl-btn" id="downloads-btn" title="Downloads"><img class="btn-icon" src="icons/downloads.webp"></button>
         <button class="ctrl-btn" id="recordings-mgmt-btn" title="Manage Recordings" style="display:none;"><img class="btn-icon" src="icons/recordings.webp"></button>
-        <button class="ctrl-btn" id="branding-btn" title="Studio Look &amp; Feel" style="display:none; font-size:1.1rem;">🎨</button>
+        <button class="ctrl-btn" id="branding-btn" title="Studio Settings" style="display:none; font-size:1.1rem;"><img class="btn-icon" src="icons/admin-settings.webp"></button>
         <button class="ctrl-btn" id="sidebar-toggle" title="Show/Hide Sidebar"><img class="btn-icon" src="icons/sidebar.webp"></button>
         <button class="ctrl-btn leave-btn" id="leave-btn" title="Leave">✕</button>
       </div>
@@ -1525,54 +1526,6 @@
   </div>
 </div>
 
-<!-- ═══════ BRANDING / LOOK & FEEL PANEL (host only) ═══════ -->
-<div class="downloads-panel" id="branding-panel">
-  <div class="downloads-card" style="max-width:460px;">
-    <h2>Studio Look &amp; Feel</h2>
-    <p>Customize branding for everyone in the studio. Changes apply live.</p>
-
-    <div class="field">
-      <label>Studio Name</label>
-      <input type="text" id="branding-name" maxlength="60" placeholder="Podcast Studio" />
-    </div>
-
-    <div class="field" style="display:flex; gap:1rem;">
-      <div style="flex:1;">
-        <label>Accent Color</label>
-        <input type="color" id="branding-accent" style="width:100%; height:2.4rem; padding:0.2rem; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; cursor:pointer;" />
-      </div>
-      <div style="flex:1;">
-        <label>Background Color</label>
-        <input type="color" id="branding-bg" style="width:100%; height:2.4rem; padding:0.2rem; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; cursor:pointer;" />
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Logo</label>
-      <div style="display:flex; align-items:center; gap:0.6rem;">
-        <img class="brand-logo-img" id="branding-logo-preview" alt="" style="height:36px; max-width:120px; border-radius:4px;">
-        <button class="btn-small" type="button" id="branding-logo-upload-btn">Upload…</button>
-        <button class="btn-small" type="button" id="branding-logo-remove-btn">Remove</button>
-        <input type="file" id="branding-logo-input" accept="image/*" hidden />
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Studio Background Image</label>
-      <div style="display:flex; align-items:center; gap:0.6rem;">
-        <img class="brand-logo-img" id="branding-bg-preview" alt="" style="height:36px; max-width:120px; border-radius:4px; object-fit:cover;">
-        <button class="btn-small" type="button" id="branding-bg-upload-btn">Upload…</button>
-        <button class="btn-small" type="button" id="branding-bg-remove-btn">Remove</button>
-        <input type="file" id="branding-bg-input" accept="image/*" hidden />
-      </div>
-    </div>
-
-    <button class="btn btn-primary" id="branding-save-btn" style="margin-top:0.5rem;">Save Changes</button>
-    <button class="btn-small" id="branding-reset-btn" style="width:100%; margin-top:0.5rem; padding:0.6rem;">Reset to Defaults</button>
-    <button class="btn btn-primary downloads-close" id="branding-close" style="margin-top:0.5rem;">Close</button>
-  </div>
-</div>
-
 <!-- ═══════ TOAST AREA ═══════ -->
 <div class="toast-area" id="toast-area"></div>
 
@@ -1628,6 +1581,9 @@ const DEFAULT_STUDIO_SETTINGS = {
   brandName: "Podcast Studio",
   accentColor: "#ef4a52",
   bgColor: "#024",
+  surfaceColor: "#001327",
+  textColor: "#e8e6f0",
+  textDimColor: "#8a879a",
   logoUrl: "",
   backgroundUrl: "",
 };
@@ -1668,6 +1624,10 @@ function applyStudioSettings(settings) {
   root.setProperty("--accent", studioSettings.accentColor);
   root.setProperty("--accent-glow", hexToRgba(studioSettings.accentColor, 0.25));
   root.setProperty("--bg", studioSettings.bgColor);
+  root.setProperty("--surface", studioSettings.surfaceColor);
+  root.setProperty("--surface-2", studioSettings.surfaceColor);
+  root.setProperty("--text", studioSettings.textColor);
+  root.setProperty("--text-dim", studioSettings.textDimColor);
 
   document.title = studioSettings.brandName;
   const lobbyTitle = document.getElementById("lobby-title");
@@ -3163,144 +3123,10 @@ async function loadRecordingsManagement() {
 }
 
 // ═══════════════════════════════════════════════
-//  STUDIO LOOK & FEEL PANEL (host only)
+//  STUDIO LOOK & FEEL (host only — full editor lives at /settings)
 // ═══════════════════════════════════════════════
-function populateBrandingPanel() {
-  document.getElementById("branding-name").value = studioSettings.brandName;
-  document.getElementById("branding-accent").value = normalizeHexColor(studioSettings.accentColor) || DEFAULT_STUDIO_SETTINGS.accentColor;
-  document.getElementById("branding-bg").value = normalizeHexColor(studioSettings.bgColor) || "#002244";
-  setBrandLogoPreview(document.getElementById("branding-logo-preview"), studioSettings.logoUrl);
-  setBrandLogoPreview(document.getElementById("branding-bg-preview"), studioSettings.backgroundUrl);
-}
-
 document.getElementById("branding-btn")?.addEventListener("click", () => {
-  populateBrandingPanel();
-  document.getElementById("branding-panel").classList.add("active");
-});
-
-document.getElementById("branding-close").addEventListener("click", () => {
-  document.getElementById("branding-panel").classList.remove("active");
-});
-
-document.getElementById("branding-save-btn").addEventListener("click", async () => {
-  try {
-    const res = await fetch("/api/studio-settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        role: state.role,
-        brandName: document.getElementById("branding-name").value.trim() || DEFAULT_STUDIO_SETTINGS.brandName,
-        accentColor: document.getElementById("branding-accent").value,
-        bgColor: document.getElementById("branding-bg").value,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || "Save failed");
-    applyStudioSettings(data.settings);
-    showToast("Studio branding updated", "success");
-  } catch (e) {
-    showToast("Failed to save: " + e.message, "error");
-  }
-});
-
-document.getElementById("branding-reset-btn").addEventListener("click", async () => {
-  if (!confirm("Reset look & feel to defaults? This also removes the logo and background image.")) return;
-  try {
-    const res = await fetch("/api/studio-settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: state.role, ...DEFAULT_STUDIO_SETTINGS }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || "Reset failed");
-    applyStudioSettings(data.settings);
-    populateBrandingPanel();
-    showToast("Reset to defaults", "success");
-  } catch (e) {
-    showToast("Failed to reset: " + e.message, "error");
-  }
-});
-
-async function uploadBrandingImage(kind, file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const metaBytes = new TextEncoder().encode(JSON.stringify({ role: state.role, kind, mimeType: file.type }) + "\n");
-  const fileBytes = new Uint8Array(arrayBuffer);
-  const combined = new Uint8Array(metaBytes.length + fileBytes.length);
-  combined.set(metaBytes, 0);
-  combined.set(fileBytes, metaBytes.length);
-  const res = await fetch("/api/studio-settings/upload", { method: "POST", body: combined });
-  return res.json();
-}
-
-document.getElementById("branding-logo-upload-btn").addEventListener("click", () => {
-  document.getElementById("branding-logo-input").click();
-});
-document.getElementById("branding-bg-upload-btn").addEventListener("click", () => {
-  document.getElementById("branding-bg-input").click();
-});
-
-document.getElementById("branding-logo-input").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  e.target.value = "";
-  if (!file) return;
-  try {
-    const data = await uploadBrandingImage("logo", file);
-    if (!data.ok) throw new Error(data.error || "Upload failed");
-    applyStudioSettings(data.settings);
-    setBrandLogoPreview(document.getElementById("branding-logo-preview"), data.settings.logoUrl);
-    showToast("Logo updated", "success");
-  } catch (err) {
-    showToast("Failed to upload logo: " + err.message, "error");
-  }
-});
-
-document.getElementById("branding-bg-input").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  e.target.value = "";
-  if (!file) return;
-  try {
-    const data = await uploadBrandingImage("background", file);
-    if (!data.ok) throw new Error(data.error || "Upload failed");
-    applyStudioSettings(data.settings);
-    setBrandLogoPreview(document.getElementById("branding-bg-preview"), data.settings.backgroundUrl);
-    showToast("Background updated", "success");
-  } catch (err) {
-    showToast("Failed to upload background: " + err.message, "error");
-  }
-});
-
-document.getElementById("branding-logo-remove-btn").addEventListener("click", async () => {
-  try {
-    const res = await fetch("/api/studio-settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: state.role, logoUrl: "" }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || "Failed");
-    applyStudioSettings(data.settings);
-    setBrandLogoPreview(document.getElementById("branding-logo-preview"), "");
-    showToast("Logo removed", "info");
-  } catch (e) {
-    showToast("Failed: " + e.message, "error");
-  }
-});
-
-document.getElementById("branding-bg-remove-btn").addEventListener("click", async () => {
-  try {
-    const res = await fetch("/api/studio-settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: state.role, backgroundUrl: "" }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || "Failed");
-    applyStudioSettings(data.settings);
-    setBrandLogoPreview(document.getElementById("branding-bg-preview"), "");
-    showToast("Background removed", "info");
-  } catch (e) {
-    showToast("Failed: " + e.message, "error");
-  }
+  window.open("/settings", "_blank");
 });
 
 // ═══════════════════════════════════════════════

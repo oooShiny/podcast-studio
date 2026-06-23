@@ -1048,6 +1048,44 @@
       transform: translateX(-50%) translateY(0);
     }
   </style>
+  <script>
+  (function() {
+    function normalizeHexColor(hex) {
+      if (!hex) return null;
+      const shorthand = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(hex);
+      if (shorthand) return `#${shorthand[1]}${shorthand[1]}${shorthand[2]}${shorthand[2]}${shorthand[3]}${shorthand[3]}`.toLowerCase();
+      if (/^#[0-9a-f]{6}$/i.test(hex)) return hex.toLowerCase();
+      return null;
+    }
+    function hexToRgba(hex, alpha) {
+      const full = normalizeHexColor(hex);
+      if (!full) return null;
+      const r = parseInt(full.slice(1, 3), 16);
+      const g = parseInt(full.slice(3, 5), 16);
+      const b = parseInt(full.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    // Mirrors the studio's "Look & Feel" settings (configured at /settings) so
+    // prep shares the same Background/Accent/Surface/Text/Text-dim palette.
+    fetch('/api/studio-settings').then(r => r.ok ? r.json() : null).then(s => {
+      if (!s) return;
+      const root = document.documentElement.style;
+      root.setProperty('--bg', s.bgColor);
+      root.setProperty('--bg-2', s.surfaceColor);
+      root.setProperty('--bg-3', s.surfaceColor);
+      root.setProperty('--panel', s.surfaceColor);
+      root.setProperty('--panel-2', s.surfaceColor);
+      root.setProperty('--ink', s.textColor);
+      root.setProperty('--ink-2', s.textColor);
+      root.setProperty('--ink-3', s.textDimColor);
+      root.setProperty('--ink-4', s.textDimColor);
+      root.setProperty('--red', s.accentColor);
+      root.setProperty('--red-2', s.accentColor);
+      const soft = hexToRgba(s.accentColor, 0.18);
+      if (soft) root.setProperty('--red-soft', soft);
+    }).catch(() => {});
+  })();
+  </script>
 </head>
 <body>
 
@@ -2198,6 +2236,18 @@
       return blobToBase64(blob);
     }
 
+    function sizePdfViewer() {
+      const wrap = focalReading.querySelector('.reading-pdf-wrap');
+      if (!wrap) return;
+      const available = window.innerHeight - wrap.getBoundingClientRect().top - 24;
+      wrap.style.height = Math.max(500, available) + 'px';
+      // Flex layout may grow `wrap` beyond the height just set; iframe needs
+      // the final realized height since its own `height:100%` doesn't track it.
+      const iframe = wrap.querySelector('iframe');
+      if (iframe) iframe.style.height = wrap.getBoundingClientRect().height + 'px';
+    }
+    window.addEventListener('resize', sizePdfViewer);
+
     function switchToSource(id) {
       const src = sources.find(s => s.id === id);
       if (!src) return;
@@ -2256,6 +2306,7 @@
       } else if (src.mime === 'application/pdf') {
         const fileUrl = `/api/prep-sources/file/${encodeURIComponent(currentGameSlug)}/${encodeURIComponent(src.filename)}`;
         focalReading.innerHTML = `<div class="reading-pdf-wrap"><iframe src="${fileUrl}"></iframe></div>`;
+        sizePdfViewer();
       } else {
         focalReading.innerHTML = `<div class="reading-url-card">
           <div class="reading-url-title">${escHtml(src.name)}</div>
@@ -2703,6 +2754,7 @@
     loadEpisodes();
     switchTab('shared');
     setSaveStatus('No episode selected', 'idle');
+    resetFocalPane();
 
     if (currentUser) { applyUser(currentUser); }
     else { showLoginOverlay(); }

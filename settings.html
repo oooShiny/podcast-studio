@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Settings</title>
+<link rel="icon" type="image/png" href="/favicon/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+<link rel="shortcut icon" href="/favicon/favicon.ico" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+  :root {
+    --bg: #024;
+    --surface: #001327;
+    --surface-2: #024;
+    --border: #2a2a38;
+    --text: #e8e6f0;
+    --text-dim: #8a879a;
+    --accent: #ef4a52;
+    --accent-glow: rgba(239, 74, 82, 0.25);
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+  }
+
+  .top-bar {
+    width: 100%;
+    max-width: 520px;
+    margin-bottom: 1.5rem;
+  }
+
+  .back-link {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    text-decoration: none;
+    opacity: 0.8;
+  }
+  .back-link:hover { opacity: 1; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    max-width: 520px;
+    width: 100%;
+  }
+
+  h1 { font-size: 1.5rem; margin-bottom: 0.3rem; }
+  .card p.sub { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.5rem; }
+
+  .field { margin-bottom: 1.2rem; text-align: left; }
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 0.45rem;
+  }
+  .field input[type="text"], .field input[type="password"] {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus { border-color: var(--accent); }
+
+  .color-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem 1.2rem;
+    margin-bottom: 1.2rem;
+  }
+  .color-grid .field { margin-bottom: 0; }
+  .color-grid input[type="color"] {
+    width: 100%;
+    height: 2.4rem;
+    padding: 0.2rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .brand-logo-img { display: none; height: 36px; max-width: 120px; border-radius: 4px; }
+  .brand-logo-img.has-logo { display: inline-block; }
+  .brand-logo-img.bg-preview { object-fit: cover; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.6rem;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    width: 100%;
+    margin-top: 0.4rem;
+  }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-small {
+    padding: 0.4rem 0.75rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-small:hover { border-color: var(--text-dim); }
+  .btn-small.full { width: 100%; margin-top: 0.5rem; padding: 0.6rem; }
+
+  .upload-row { display: flex; align-items: center; gap: 0.6rem; }
+
+  .status-msg { font-size: 0.85rem; margin-top: 0.8rem; min-height: 1.2em; }
+  .status-msg.success { color: #34d399; }
+  .status-msg.error { color: var(--accent); }
+  .status-msg.info { color: var(--text-dim); }
+
+  .error-text { color: var(--accent); font-size: 0.85rem; margin-bottom: 0.5rem; }
+
+  #lock-card { text-align: center; }
+  #settings-card { display: none; }
+</style>
+</head>
+<body>
+
+<div class="top-bar"><a class="back-link" href="/">← Back to Studio</a></div>
+
+<div id="lock-card" class="card">
+  <h1>Studio Settings</h1>
+  <p class="sub">Host access required.</p>
+  <div class="field">
+    <label>Password</label>
+    <input type="password" id="lock-password" placeholder="Host password" />
+  </div>
+  <div id="lock-error" class="error-text" style="display:none;"></div>
+  <button class="btn btn-primary" id="lock-submit">Unlock</button>
+</div>
+
+<div id="settings-card" class="card">
+  <h1>Studio Look &amp; Feel</h1>
+  <p class="sub">Customize branding for everyone in the studio and prep workspace. Changes apply live.</p>
+
+  <div class="field">
+    <label>Studio Name</label>
+    <input type="text" id="brand-name" maxlength="60" placeholder="Podcast Studio" />
+  </div>
+
+  <div class="color-grid">
+    <div class="field">
+      <label>Background</label>
+      <input type="color" id="color-bg" />
+    </div>
+    <div class="field">
+      <label>Accent</label>
+      <input type="color" id="color-accent" />
+    </div>
+    <div class="field">
+      <label>Surface</label>
+      <input type="color" id="color-surface" />
+    </div>
+    <div class="field">
+      <label>Text</label>
+      <input type="color" id="color-text" />
+    </div>
+    <div class="field">
+      <label>Text Dim</label>
+      <input type="color" id="color-text-dim" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Logo</label>
+    <div class="upload-row">
+      <img class="brand-logo-img" id="logo-preview" alt="">
+      <button class="btn-small" type="button" id="logo-upload-btn">Upload…</button>
+      <button class="btn-small" type="button" id="logo-remove-btn">Remove</button>
+      <input type="file" id="logo-input" accept="image/*" hidden />
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Studio Background Image</label>
+    <div class="upload-row">
+      <img class="brand-logo-img bg-preview" id="bg-preview" alt="">
+      <button class="btn-small" type="button" id="bg-upload-btn">Upload…</button>
+      <button class="btn-small" type="button" id="bg-remove-btn">Remove</button>
+      <input type="file" id="bg-input" accept="image/*" hidden />
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="save-btn">Save Changes</button>
+  <button class="btn-small full" id="reset-btn">Reset to Defaults</button>
+  <div id="status-msg" class="status-msg"></div>
+</div>
+
+<script>
+const DEFAULTS = {
+  brandName: "Podcast Studio",
+  accentColor: "#ef4a52",
+  bgColor: "#024",
+  surfaceColor: "#001327",
+  textColor: "#e8e6f0",
+  textDimColor: "#8a879a",
+  logoUrl: "",
+  backgroundUrl: "",
+};
+
+let role = null;
+let settings = { ...DEFAULTS };
+
+function normalizeHexColor(hex) {
+  if (!hex) return null;
+  const shorthand = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(hex);
+  if (shorthand) return `#${shorthand[1]}${shorthand[1]}${shorthand[2]}${shorthand[2]}${shorthand[3]}${shorthand[3]}`.toLowerCase();
+  if (/^#[0-9a-f]{6}$/i.test(hex)) return hex.toLowerCase();
+  return null;
+}
+
+function setPreview(imgEl, url) {
+  if (!imgEl) return;
+  if (url) { imgEl.src = url; imgEl.classList.add("has-logo"); }
+  else { imgEl.removeAttribute("src"); imgEl.classList.remove("has-logo"); }
+}
+
+function showStatus(msg, kind) {
+  const el = document.getElementById("status-msg");
+  el.textContent = msg;
+  el.className = "status-msg" + (kind ? " " + kind : "");
+}
+
+function applyTheme(s) {
+  const root = document.documentElement.style;
+  root.setProperty("--bg", s.bgColor);
+  root.setProperty("--surface", s.surfaceColor);
+  root.setProperty("--surface-2", s.surfaceColor);
+  root.setProperty("--text", s.textColor);
+  root.setProperty("--text-dim", s.textDimColor);
+  root.setProperty("--accent", s.accentColor);
+}
+
+function populateForm() {
+  document.getElementById("brand-name").value = settings.brandName;
+  document.getElementById("color-bg").value = normalizeHexColor(settings.bgColor) || DEFAULTS.bgColor;
+  document.getElementById("color-accent").value = normalizeHexColor(settings.accentColor) || DEFAULTS.accentColor;
+  document.getElementById("color-surface").value = normalizeHexColor(settings.surfaceColor) || DEFAULTS.surfaceColor;
+  document.getElementById("color-text").value = normalizeHexColor(settings.textColor) || DEFAULTS.textColor;
+  document.getElementById("color-text-dim").value = normalizeHexColor(settings.textDimColor) || DEFAULTS.textDimColor;
+  setPreview(document.getElementById("logo-preview"), settings.logoUrl);
+  setPreview(document.getElementById("bg-preview"), settings.backgroundUrl);
+}
+
+async function loadSettings() {
+  try {
+    const res = await fetch("/api/studio-settings");
+    if (res.ok) {
+      settings = { ...DEFAULTS, ...(await res.json()) };
+      applyTheme(settings);
+      populateForm();
+    }
+  } catch {}
+}
+
+async function saveSettings(partial) {
+  const res = await fetch("/api/studio-settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role, ...partial }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.ok) throw new Error(data.error || "Save failed");
+  settings = data.settings;
+  applyTheme(settings);
+  return settings;
+}
+
+document.getElementById("save-btn").addEventListener("click", async () => {
+  try {
+    await saveSettings({
+      brandName: document.getElementById("brand-name").value.trim() || DEFAULTS.brandName,
+      accentColor: document.getElementById("color-accent").value,
+      bgColor: document.getElementById("color-bg").value,
+      surfaceColor: document.getElementById("color-surface").value,
+      textColor: document.getElementById("color-text").value,
+      textDimColor: document.getElementById("color-text-dim").value,
+    });
+    populateForm();
+    showStatus("Saved", "success");
+  } catch (e) {
+    showStatus("Failed to save: " + e.message, "error");
+  }
+});
+
+document.getElementById("reset-btn").addEventListener("click", async () => {
+  if (!confirm("Reset look & feel to defaults? This also removes the logo and background image.")) return;
+  try {
+    await saveSettings({ ...DEFAULTS });
+    populateForm();
+    showStatus("Reset to defaults", "info");
+  } catch (e) {
+    showStatus("Failed to reset: " + e.message, "error");
+  }
+});
+
+async function uploadImage(kind, file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const metaBytes = new TextEncoder().encode(JSON.stringify({ role, kind, mimeType: file.type }) + "\n");
+  const fileBytes = new Uint8Array(arrayBuffer);
+  const combined = new Uint8Array(metaBytes.length + fileBytes.length);
+  combined.set(metaBytes, 0);
+  combined.set(fileBytes, metaBytes.length);
+  const res = await fetch("/api/studio-settings/upload", { method: "POST", body: combined });
+  return res.json();
+}
+
+document.getElementById("logo-upload-btn").addEventListener("click", () => document.getElementById("logo-input").click());
+document.getElementById("bg-upload-btn").addEventListener("click", () => document.getElementById("bg-input").click());
+
+document.getElementById("logo-input").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const data = await uploadImage("logo", file);
+    if (!data.ok) throw new Error(data.error || "Upload failed");
+    settings = data.settings;
+    applyTheme(settings);
+    setPreview(document.getElementById("logo-preview"), settings.logoUrl);
+    showStatus("Logo updated", "success");
+  } catch (err) {
+    showStatus("Failed to upload logo: " + err.message, "error");
+  }
+});
+
+document.getElementById("bg-input").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const data = await uploadImage("background", file);
+    if (!data.ok) throw new Error(data.error || "Upload failed");
+    settings = data.settings;
+    applyTheme(settings);
+    setPreview(document.getElementById("bg-preview"), settings.backgroundUrl);
+    showStatus("Background image updated", "success");
+  } catch (err) {
+    showStatus("Failed to upload background: " + err.message, "error");
+  }
+});
+
+document.getElementById("logo-remove-btn").addEventListener("click", async () => {
+  try {
+    await saveSettings({ logoUrl: "" });
+    setPreview(document.getElementById("logo-preview"), "");
+    showStatus("Logo removed", "info");
+  } catch (e) {
+    showStatus("Failed: " + e.message, "error");
+  }
+});
+
+document.getElementById("bg-remove-btn").addEventListener("click", async () => {
+  try {
+    await saveSettings({ backgroundUrl: "" });
+    setPreview(document.getElementById("bg-preview"), "");
+    showStatus("Background image removed", "info");
+  } catch (e) {
+    showStatus("Failed: " + e.message, "error");
+  }
+});
+
+async function attemptUnlock() {
+  const password = document.getElementById("lock-password").value;
+  const errEl = document.getElementById("lock-error");
+  errEl.style.display = "none";
+  if (!password) return;
+  try {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json();
+    if (!data.role) {
+      errEl.textContent = "Invalid password";
+      errEl.style.display = "";
+      return;
+    }
+    if (data.role !== "host") {
+      errEl.textContent = "Host access required";
+      errEl.style.display = "";
+      return;
+    }
+    role = data.role;
+    document.getElementById("lock-card").style.display = "none";
+    document.getElementById("settings-card").style.display = "block";
+    await loadSettings();
+  } catch {
+    errEl.textContent = "Could not reach server";
+    errEl.style.display = "";
+  }
+}
+
+document.getElementById("lock-submit").addEventListener("click", attemptUnlock);
+document.getElementById("lock-password").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") attemptUnlock();
+});
+
+loadSettings();
+document.getElementById("lock-password").focus();
+</script>
+</body>
+</html>
