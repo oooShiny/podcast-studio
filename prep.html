@@ -10,6 +10,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-title" content="Podcast Studio" />
   <link rel="manifest" href="/favicon/site.webmanifest" />
+  <link rel="stylesheet" href="/nav-header.css" />
+  <script src="/nav-header.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,6 +45,7 @@
       --border:    var(--line);
       --text:      var(--ink);
       --text-dim:  var(--ink-3);
+      --menu-text: var(--ink-3);
       --accent:    var(--red);
       --accent-dark: var(--red-2);
       --accent-glow: var(--red-soft);
@@ -1079,6 +1082,7 @@
       root.setProperty('--ink-2', s.textColor);
       root.setProperty('--ink-3', s.textDimColor);
       root.setProperty('--ink-4', s.textDimColor);
+      root.setProperty('--menu-text', s.menuTextColor);
       root.setProperty('--red', s.accentColor);
       root.setProperty('--red-2', s.accentColor);
       const soft = hexToRgba(s.accentColor, 0.18);
@@ -1123,6 +1127,7 @@
           <button id="switch-user-btn" style="color:var(--red);background:none;border:none;cursor:pointer;font:inherit;padding:0">Switch</button>
         </span>
       </p>
+      <nav class="ps-nav-header" id="ps-nav-header" style="justify-content:center;margin-top:10px;"></nav>
     </header>
 
     <!-- ══ Episode Selector ══ -->
@@ -2688,6 +2693,7 @@
       currentRole = localStorage.getItem('podcast-studio-role') || 'guest';
       localStorage.setItem('podcast-studio-username', name);
       userBadgeName.textContent = name;
+      PSNavHeader.render(document.getElementById('ps-nav-header'), { current: 'prep', role: currentRole });
       loginOverlay.classList.add('hidden');
       switchTab(activeTab);
       connectPrepWs();
@@ -2750,6 +2756,7 @@
     });
 
     // ── Init ──────────────────────────────────────────────────────────
+    PSNavHeader.render(document.getElementById('ps-nav-header'), { current: 'prep', role: currentRole });
     initDB();
     loadEpisodes();
     switchTab('shared');

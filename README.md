@@ -12,20 +12,60 @@ A minimal, browser-based podcast recording platform. No installs required — gu
 - **Chat, soundboard, and screenshots** alongside the recording session
 - **Prep Notes** (`/prep`) — a separate prep workspace for building episodes ahead of recording: upload source files (video, audio, images, PDFs) or bookmark URLs, scrub video and drop in timestamps/screenshots, OCR text from images, and write up two collaborative docs per episode (Shared Notes and My Notes)
 
-## Quick Start (Local Development)
+## Installation
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) 18 or later
+- npm (bundled with Node.js)
+
+### Steps
 
 ```bash
+# Clone the repository
+git clone https://github.com/oooShiny/podcast-studio.git
+cd podcast-studio
+
 # Install dependencies
 npm install
 
-# Start the server
+# Copy the example environment file
+cp .env.example .env
+```
+
+Edit `.env` and fill in your own values:
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `PORT` | No — defaults to `3000` | Port the server listens on |
+| `HOST_PASSWORD` | Recommended | Password for the **host** role (recording controls, `/settings`, plugin management) |
+| `MEMBER_PASSWORD` | Recommended | Password for the **member** role (co-host/regular participant) |
+| `GUEST_PASSWORD` | Recommended | Password for the **guest** role (invited participants) |
+| `WEBHOOK_SECRET` | No | Secret for the GitHub auto-deploy webhook (`POST /webhook`); leave unset to disable |
+| `GOOGLE_VISION_API_KEY` | No | Enables OCR in Prep Notes, via the bundled `google-vision-ocr` plugin |
+
+> If a role password is left unset, that role falls back to an insecure default (`host123` / `member123` / `guest`, see `lib/auth.js`). Always set your own before running anywhere beyond `localhost`.
+
+## Getting Started
+
+```bash
 npm start
 ```
 
-Then open `http://localhost:3000` in your browser.
+Open `http://localhost:3000` in your browser and log in with one of the passwords from your `.env`.
 
-To test with multiple participants on the same machine, open additional browser tabs.
-To test across machines on the same network, use your local IP (e.g., `http://192.168.1.x:3000`).
+- **Host** — full control: recording, `/settings` (branding/theme, plugin management), everything members and guests can do.
+- **Member / Guest** — join recording sessions. Share `http://<your-server>:3000` with them (or your local IP, e.g. `http://192.168.1.x:3000`, for same-network testing) so they can log in with their own role password.
+
+Typical flow:
+
+1. Everyone opens the link and joins the same room, connecting over WebRTC (grant camera/mic permissions when prompted).
+2. Each participant clicks record — audio is captured locally in their own browser (see [How Recording Works](#how-recording-works) below).
+3. After the session, each participant downloads their own recording; the host collects and syncs them in post.
+4. Optional: use `/prep` ahead of time to build out an episode — upload sources, scrub video for timestamps, write shared notes.
+5. Optional: use `/settings` (host only) to customize the UI theme/branding and enable or disable [plugins](#plugins).
+
+To test with multiple participants on the same machine, just open additional browser tabs.
 
 ## How Recording Works
 
@@ -96,6 +136,78 @@ WebRTC requires HTTPS in production (except on localhost). Any deployment method
 ```
 
 The server only handles signaling (helping peers find each other). All audio/video flows directly between participants — the server never sees or processes any media.
+
+## Plugins
+
+Podcast Studio has a small plugin system: drop a folder into `plugins/`, restart the server, and it's picked up automatically — no edits to `server.js` or the frontend needed. Two examples ship in the repo:
+
+- `plugins/hello-world` — the minimal scaffold, good starting point for a copy/paste
+- `plugins/google-vision-ocr` — a real plugin: adds `POST /api/ocr` (used by Prep Notes' OCR feature), backed by `GOOGLE_VISION_API_KEY`
+
+### Managing plugins
+
+- **Hard gate, boot-time:** set `PLUGINS_ENABLED` in `.env` to a comma-separated list of plugin names to load only those (omit it to load every plugin found under `plugins/`).
+- **Soft toggle, live:** as host, go to `/settings` → Plugins, and flip any plugin on/off. No restart needed — its routes and sidebar tab stop matching immediately. This is persisted in `plugins-settings.json`.
+
+### Creating a plugin
+
+1. Create a folder under `plugins/`, e.g. `plugins/my-plugin/`.
+
+2. Add `manifest.json`:
+
+   ```json
+   {
+     "name": "my-plugin",
+     "version": "1.0.0"
+   }
+   ```
+
+3. Add `index.js`, exporting any combination of:
+
+   ```js
+   module.exports = {
+     // HTTP routes, checked in order against every incoming request
+     routes: [
+       { method: "GET", match: (url) => url === "/api/plugins/my-plugin", handler: handleMyRoute },
+     ],
+
+     // WebSocket message handlers, keyed by msg.type
+     wsHandlers: {
+       "my-message-type": (ws, msg, state) => { /* ... */ },
+     },
+
+     // Called once at server boot with a context scoped to this plugin
+     init(ctx) {
+       // ctx.rootDir          — project root
+       // ctx.dirs             — core data directories (recordings, prep-notes, etc.)
+       // ctx.rooms            — live room/participant state
+       // ctx.broadcast(...)   — send a message to everyone in a room
+       // ctx.pluginDir(name)  — creates/returns plugins-data/<name>, your own storage namespace
+     },
+
+     // Called when a WebSocket connection closes
+     onClose(ws, state) {},
+   };
+   ```
+
+4. Optional — add a sidebar tab in the studio UI via `plugins/my-plugin/public/tab.js`. It's auto-injected on page load whenever the plugin is enabled:
+
+   ```js
+   window.PodcastStudioPlugins.registerSidebarTab({
+     id: "my-plugin",
+     label: "My Plugin",
+     panelHTML: `<div class="panel-section">Hello from my plugin!</div>`,
+     onMount(panel) {
+       // panel is the mounted DOM node for panelHTML — wire up fetch calls, listeners, etc.
+     },
+   });
+   ```
+
+   Any other static file under `plugins/my-plugin/public/` is served at `/plugins/my-plugin/<filename>`.
+
+5. Restart the server. Your plugin now shows up in `GET /api/plugins` and in the host's `/settings` → Plugins list.
+
+Plugins write to their own isolated directory (`plugins-data/<name>/`, via `ctx.pluginDir(name)`) rather than the core `recordings/`, `prep-notes/`, etc. directories.
 
 ## Limitations (Prototype)
 

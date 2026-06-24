@@ -7,6 +7,8 @@
 <link rel="icon" type="image/png" href="/favicon/favicon-96x96.png" sizes="96x96" />
 <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
 <link rel="shortcut icon" href="/favicon/favicon.ico" />
+<link rel="stylesheet" href="/nav-header.css" />
+<script src="/nav-header.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
 
@@ -17,6 +19,7 @@
     --border: #2a2a38;
     --text: #e8e6f0;
     --text-dim: #8a879a;
+    --menu-text: #8a879a;
     --accent: #ef4a52;
     --accent-glow: rgba(239, 74, 82, 0.25);
     --radius: 12px;
@@ -178,7 +181,7 @@
 </head>
 <body>
 
-<div class="top-bar"><a class="back-link" href="/">← Back to Studio</a></div>
+<div class="top-bar"><nav class="ps-nav-header" id="ps-nav-header"></nav></div>
 
 <div id="lock-card" class="card">
   <h1>Studio Settings</h1>
@@ -220,6 +223,10 @@
     <div class="field">
       <label>Text Dim</label>
       <input type="color" id="color-text-dim" />
+    </div>
+    <div class="field">
+      <label>Menu Text</label>
+      <input type="color" id="color-menu-text" />
     </div>
   </div>
 
@@ -267,6 +274,7 @@ const DEFAULTS = {
   surfaceColor: "#001327",
   textColor: "#e8e6f0",
   textDimColor: "#8a879a",
+  menuTextColor: "#8a879a",
   logoUrl: "",
   backgroundUrl: "",
   disabledTabs: [],
@@ -382,6 +390,7 @@ function applyTheme(s) {
   root.setProperty("--surface-2", s.surfaceColor);
   root.setProperty("--text", s.textColor);
   root.setProperty("--text-dim", s.textDimColor);
+  root.setProperty("--menu-text", s.menuTextColor);
   root.setProperty("--accent", s.accentColor);
 }
 
@@ -392,6 +401,7 @@ function populateForm() {
   document.getElementById("color-surface").value = normalizeHexColor(settings.surfaceColor) || DEFAULTS.surfaceColor;
   document.getElementById("color-text").value = normalizeHexColor(settings.textColor) || DEFAULTS.textColor;
   document.getElementById("color-text-dim").value = normalizeHexColor(settings.textDimColor) || DEFAULTS.textDimColor;
+  document.getElementById("color-menu-text").value = normalizeHexColor(settings.menuTextColor) || DEFAULTS.menuTextColor;
   setPreview(document.getElementById("logo-preview"), settings.logoUrl);
   setPreview(document.getElementById("bg-preview"), settings.backgroundUrl);
   applyDisabledTabsToCheckboxes();
@@ -436,6 +446,7 @@ document.getElementById("save-btn").addEventListener("click", async () => {
       surfaceColor: document.getElementById("color-surface").value,
       textColor: document.getElementById("color-text").value,
       textDimColor: document.getElementById("color-text-dim").value,
+      menuTextColor: document.getElementById("color-menu-text").value,
       disabledTabs,
     });
     populateForm();
@@ -560,6 +571,7 @@ document.getElementById("lock-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") attemptUnlock();
 });
 
+PSNavHeader.render(document.getElementById("ps-nav-header"), { current: "settings" });
 loadSettings();
 document.getElementById("lock-password").focus();
 </script>

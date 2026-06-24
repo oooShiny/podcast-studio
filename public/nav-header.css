@@ -1,0 +1,20 @@
+.ps-nav-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+.ps-nav-header a {
+  color: var(--menu-text);
+  text-decoration: none;
+  opacity: 0.75;
+  transition: opacity 0.15s, color 0.15s;
+}
+.ps-nav-header a:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+.ps-nav-header .ps-nav-sep {
+  color: var(--menu-text);
+  opacity: 0.4;
+}

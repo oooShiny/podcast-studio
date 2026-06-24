@@ -10,6 +10,8 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="Podcast Studio" />
     <link rel="manifest" href="/favicon/site.webmanifest" />
+    <link rel="stylesheet" href="/nav-header.css" />
+    <script src="/nav-header.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -20,6 +22,7 @@
     --border: #2a2a38;
     --text: #e8e6f0;
     --text-dim: #8a879a;
+    --menu-text: #8a879a;
     --accent: #ef4a52;
     --accent-glow: rgba(239, 74, 82, 0.25);
     --green: #34d399;
@@ -533,6 +536,7 @@
       grid-template-columns: 1fr;
     }
     .lobby-card { padding: 2rem 1.5rem; }
+    .studio-header .ps-nav-header { display: none; }
     .studio-body { flex-direction: column; }
     .sidebar {
       width: 100%;
@@ -1350,6 +1354,7 @@
       <img class="brand-logo-img header-logo-img" id="studio-logo" alt="">
       <span id="studio-brand-dot">●</span> <span id="studio-brand-text">Podcast Studio</span>
     </div>
+    <nav class="ps-nav-header" id="ps-nav-header"></nav>
     <div class="studio-room" id="room-display"></div>
     <div class="studio-timer" id="timer">
       <span class="rec-indicator" id="rec-indicator" style="display:none;">●</span>
@@ -1372,7 +1377,6 @@
         <button class="ctrl-btn record-btn" id="record-btn" title="Start Recording">REC</button>
         <button class="ctrl-btn" id="downloads-btn" title="Downloads"><img class="btn-icon" src="icons/downloads.webp"></button>
         <button class="ctrl-btn" id="recordings-mgmt-btn" title="Manage Recordings" style="display:none;"><img class="btn-icon" src="icons/recordings.webp"></button>
-        <button class="ctrl-btn" id="branding-btn" title="Studio Settings" style="display:none; font-size:1.1rem;"><img class="btn-icon" src="icons/admin-settings.webp"></button>
         <button class="ctrl-btn" id="sidebar-toggle" title="Show/Hide Sidebar"><img class="btn-icon" src="icons/sidebar.webp"></button>
         <button class="ctrl-btn leave-btn" id="leave-btn" title="Leave">✕</button>
       </div>
@@ -1584,6 +1588,7 @@ const DEFAULT_STUDIO_SETTINGS = {
   surfaceColor: "#001327",
   textColor: "#e8e6f0",
   textDimColor: "#8a879a",
+  menuTextColor: "#8a879a",
   logoUrl: "",
   backgroundUrl: "",
   disabledTabs: [],
@@ -1629,6 +1634,7 @@ function applyStudioSettings(settings) {
   root.setProperty("--surface-2", studioSettings.surfaceColor);
   root.setProperty("--text", studioSettings.textColor);
   root.setProperty("--text-dim", studioSettings.textDimColor);
+  root.setProperty("--menu-text", studioSettings.menuTextColor);
 
   document.title = studioSettings.brandName;
   const lobbyTitle = document.getElementById("lobby-title");
@@ -1911,8 +1917,7 @@ document.getElementById("join-btn").addEventListener("click", async () => {
   if (recMgmtBtn) recMgmtBtn.style.display = state.role === "host" ? "" : "none";
   const recordBtn = document.getElementById("record-btn");
   if (recordBtn) recordBtn.style.display = state.role === "host" ? "" : "none";
-  const brandingBtn = document.getElementById("branding-btn");
-  if (brandingBtn) brandingBtn.style.display = state.role === "host" ? "" : "none";
+  PSNavHeader.render(document.getElementById("ps-nav-header"), { current: "studio", role: state.role });
 
   // Remove host-only sidebar sections from DOM for non-hosts
   if (state.role !== "host") {
@@ -3138,13 +3143,6 @@ async function loadRecordingsManagement() {
     list.innerHTML = `<div class="download-item"><span style="color:var(--accent)">Error: ${e.message}</span></div>`;
   }
 }
-
-// ═══════════════════════════════════════════════
-//  STUDIO LOOK & FEEL (host only — full editor lives at /settings)
-// ═══════════════════════════════════════════════
-document.getElementById("branding-btn")?.addEventListener("click", () => {
-  window.open("/settings", "_blank");
-});
 
 // ═══════════════════════════════════════════════
 //  AUDIO/VIDEO SETTINGS PANEL
