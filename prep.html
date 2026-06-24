@@ -1072,6 +1072,7 @@
     // prep shares the same Background/Accent/Surface/Text/Text-dim palette.
     fetch('/api/studio-settings').then(r => r.ok ? r.json() : null).then(s => {
       if (!s) return;
+      window.__studioSettings = s;
       const root = document.documentElement.style;
       root.setProperty('--bg', s.bgColor);
       root.setProperty('--bg-2', s.surfaceColor);
@@ -1110,6 +1111,15 @@
         <p id="login-error" class="text-red-400 text-xs hidden">Incorrect password.</p>
         <button id="login-btn" class="btn primary" style="width:100%;justify-content:center;font-size:.9rem;padding:.6rem 1rem;border-radius:8px">Enter</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ══ Guest access blocked overlay ══ -->
+  <div id="guest-blocked-overlay" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background:rgba(6,21,40,.97)">
+    <div style="background:var(--panel);border:1px solid var(--line)" class="rounded-xl shadow-2xl w-full max-w-xs p-6 text-center">
+      <h2 class="text-lg font-bold mb-2">Prep Access Disabled</h2>
+      <p class="text-sm mb-5" style="color:var(--ink-4)">The host has disabled guest access to Prep. Sign in with a member or host password to continue.</p>
+      <button id="guest-blocked-switch-btn" class="btn primary" style="width:100%;justify-content:center;font-size:.9rem;padding:.6rem 1rem;border-radius:8px">Switch User</button>
     </div>
   </div>
 
@@ -2688,12 +2698,26 @@
     const userBadgeName  = document.getElementById('user-badge-name');
     const switchUserBtn  = document.getElementById('switch-user-btn');
 
-    function applyUser(name) {
-      currentUser = name;
+    async function guestPrepAccessAllowed() {
+      let s = window.__studioSettings;
+      if (!s) {
+        try { const r = await fetch('/api/studio-settings'); s = r.ok ? await r.json() : null; } catch { s = null; }
+      }
+      return !s || s.guestPrepAccess !== false;
+    }
+
+    async function applyUser(name) {
       currentRole = localStorage.getItem('podcast-studio-role') || 'guest';
+      if (currentRole === 'guest' && !(await guestPrepAccessAllowed())) {
+        loginOverlay.classList.add('hidden');
+        document.getElementById('guest-blocked-overlay').classList.remove('hidden');
+        return;
+      }
+      currentUser = name;
       localStorage.setItem('podcast-studio-username', name);
       userBadgeName.textContent = name;
       PSNavHeader.render(document.getElementById('ps-nav-header'), { current: 'prep', role: currentRole });
+      document.getElementById('guest-blocked-overlay').classList.add('hidden');
       loginOverlay.classList.add('hidden');
       switchTab(activeTab);
       connectPrepWs();
@@ -2701,12 +2725,15 @@
     }
 
     function showLoginOverlay() {
+      document.getElementById('guest-blocked-overlay').classList.add('hidden');
       loginNameInput.value = localStorage.getItem('podcast-studio-username') || '';
       loginPassInput.value = '';
       loginError.classList.add('hidden');
       loginOverlay.classList.remove('hidden');
       (loginNameInput.value ? loginPassInput : loginNameInput).focus();
     }
+
+    document.getElementById('guest-blocked-switch-btn').addEventListener('click', showLoginOverlay);
 
     async function attemptLogin() {
       const name = loginNameInput.value.trim();

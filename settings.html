@@ -255,6 +255,15 @@
     <div class="checkbox-list" id="tabs-list"></div>
   </div>
 
+  <div class="field">
+    <label>Role Permissions</label>
+    <div class="checkbox-list">
+      <label class="checkbox-row"><input type="checkbox" id="perm-guest-prep"> Guests can access the Prep interface</label>
+      <label class="checkbox-row"><input type="checkbox" id="perm-guest-chat"> Guests can see the Chat tab</label>
+      <label class="checkbox-row"><input type="checkbox" id="perm-member-chat"> Members can see the Chat tab</label>
+    </div>
+  </div>
+
   <button class="btn btn-primary" id="save-btn">Save Changes</button>
   <button class="btn-small full" id="reset-btn">Reset to Defaults</button>
   <div id="status-msg" class="status-msg"></div>
@@ -264,6 +273,12 @@
   <h1>Plugins</h1>
   <p class="sub">Installed server plugins. Disabling one turns off its routes and sidebar tab immediately — no restart needed.</p>
   <div class="checkbox-list" id="plugins-list"></div>
+</div>
+
+<div id="recordings-card" class="card" style="margin-top:1.5rem; display:none;">
+  <h1>Server Recordings</h1>
+  <p class="sub">All recording sessions stored on the server.</p>
+  <div id="recordings-list"></div>
 </div>
 
 <script>
@@ -278,6 +293,9 @@ const DEFAULTS = {
   logoUrl: "",
   backgroundUrl: "",
   disabledTabs: [],
+  guestPrepAccess: true,
+  guestChatTab: true,
+  memberChatTab: true,
 };
 const CORE_TABS = [
   { id: "soundboard", label: "Soundboard" },
@@ -405,6 +423,9 @@ function populateForm() {
   setPreview(document.getElementById("logo-preview"), settings.logoUrl);
   setPreview(document.getElementById("bg-preview"), settings.backgroundUrl);
   applyDisabledTabsToCheckboxes();
+  document.getElementById("perm-guest-prep").checked = settings.guestPrepAccess !== false;
+  document.getElementById("perm-guest-chat").checked = settings.guestChatTab !== false;
+  document.getElementById("perm-member-chat").checked = settings.memberChatTab !== false;
 }
 
 async function loadSettings() {
@@ -448,6 +469,9 @@ document.getElementById("save-btn").addEventListener("click", async () => {
       textDimColor: document.getElementById("color-text-dim").value,
       menuTextColor: document.getElementById("color-menu-text").value,
       disabledTabs,
+      guestPrepAccess: document.getElementById("perm-guest-prep").checked,
+      guestChatTab: document.getElementById("perm-guest-chat").checked,
+      memberChatTab: document.getElementById("perm-member-chat").checked,
     });
     populateForm();
     showStatus("Saved", "success");
@@ -533,6 +557,81 @@ document.getElementById("bg-remove-btn").addEventListener("click", async () => {
   }
 });
 
+// ═══════════════════════════════════════════════
+//  SERVER RECORDINGS (host only)
+// ═══════════════════════════════════════════════
+async function loadRecordingsManagement() {
+  const list = document.getElementById("recordings-list");
+  list.innerHTML = `<p style="color:var(--text-dim); font-size:0.85rem;">Loading…</p>`;
+
+  try {
+    const res = await fetch("/api/recordings");
+    const data = await res.json();
+
+    if (!data.sessions.length) {
+      list.innerHTML = `<p style="color:var(--text-dim); font-size:0.85rem;">No recordings on server.</p>`;
+      return;
+    }
+
+    list.innerHTML = "";
+    data.sessions.forEach((session) => {
+      const sessionDiv = document.createElement("div");
+      sessionDiv.style.cssText = "margin-bottom:1rem; border:1px solid var(--border); border-radius:8px; overflow:hidden;";
+
+      const date = session.startedAt ? new Date(session.startedAt).toLocaleString() : "Unknown date";
+      const totalMB = (session.totalSize / (1024 * 1024)).toFixed(1);
+      const participants = session.participants.map((p) => p.username).join(", ") || "Unknown";
+
+      const header = document.createElement("div");
+      header.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0.75rem; background:var(--surface-2);";
+      header.innerHTML = `
+        <div>
+          <div style="font-size:0.85rem; font-weight:600;">${escHtml(date)}</div>
+          <div style="font-size:0.72rem; color:var(--text-dim);">${escHtml(participants)} · ${session.files.length} files · ${totalMB} MB</div>
+        </div>
+        <button class="btn-small session-delete-btn" style="font-size:0.72rem; color:var(--accent);">Delete All</button>
+      `;
+
+      const filesDiv = document.createElement("div");
+      filesDiv.style.cssText = "padding:0.4rem 0.6rem;";
+
+      session.files.forEach((file) => {
+        const size = (file.size / (1024 * 1024)).toFixed(1);
+        const fileItem = document.createElement("div");
+        fileItem.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:0.3rem 0; font-size:0.82rem;";
+        fileItem.innerHTML = `
+          <span>${escHtml(file.filename)} <span style="color:var(--text-dim); font-size:0.75rem;">· ${size} MB</span></span>
+          <span style="display:flex; gap:0.75rem;">
+            <a href="${file.downloadUrl}" download="${escHtml(file.filename)}" style="color:var(--accent); text-decoration:none; font-weight:600;">Download</a>
+            <a href="#" class="file-delete-btn" data-url="${file.downloadUrl}" style="color:var(--text-dim); text-decoration:none;">✕</a>
+          </span>
+        `;
+        filesDiv.appendChild(fileItem);
+      });
+
+      sessionDiv.appendChild(header);
+      sessionDiv.appendChild(filesDiv);
+      list.appendChild(sessionDiv);
+
+      header.querySelector(".session-delete-btn").addEventListener("click", async () => {
+        if (!confirm("Delete this entire recording session?")) return;
+        await fetch(`/api/sessions/${session.sessionId}`, { method: "DELETE" });
+        loadRecordingsManagement();
+      });
+
+      filesDiv.querySelectorAll(".file-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          await fetch(btn.dataset.url, { method: "DELETE" });
+          loadRecordingsManagement();
+        });
+      });
+    });
+  } catch (e) {
+    list.innerHTML = `<p style="color:var(--accent); font-size:0.85rem;">Error: ${escHtml(e.message)}</p>`;
+  }
+}
+
 async function attemptUnlock() {
   const password = document.getElementById("lock-password").value;
   const errEl = document.getElementById("lock-error");
@@ -559,7 +658,8 @@ async function attemptUnlock() {
     document.getElementById("lock-card").style.display = "none";
     document.getElementById("settings-card").style.display = "block";
     document.getElementById("plugins-card").style.display = "block";
-    await Promise.all([loadSettings(), fetchPlugins()]);
+    document.getElementById("recordings-card").style.display = "block";
+    await Promise.all([loadSettings(), fetchPlugins(), loadRecordingsManagement()]);
   } catch {
     errEl.textContent = "Could not reach server";
     errEl.style.display = "";
