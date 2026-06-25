@@ -305,8 +305,15 @@ const CORE_TABS = [
 ];
 
 let role = null;
+let token = null;
 let settings = { ...DEFAULTS };
 let plugins = [];
+
+// Attach this to any mutating fetch() that used to send a client-asserted
+// "role" field — the server now verifies role from this token instead.
+function authHeaders() {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 function escHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -375,8 +382,8 @@ async function togglePlugin(name, enabledValue) {
   try {
     const res = await fetch("/api/plugins/" + encodeURIComponent(name), {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role, enabled: enabledValue }),
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ enabled: enabledValue }),
     });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "Failed");
@@ -442,8 +449,8 @@ async function loadSettings() {
 async function saveSettings(partial) {
   const res = await fetch("/api/studio-settings", {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ role, ...partial }),
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(partial),
   });
   const data = await res.json();
   if (!res.ok || !data.ok) throw new Error(data.error || "Save failed");
@@ -493,12 +500,12 @@ document.getElementById("reset-btn").addEventListener("click", async () => {
 
 async function uploadImage(kind, file) {
   const arrayBuffer = await file.arrayBuffer();
-  const metaBytes = new TextEncoder().encode(JSON.stringify({ role, kind, mimeType: file.type }) + "\n");
+  const metaBytes = new TextEncoder().encode(JSON.stringify({ kind, mimeType: file.type }) + "\n");
   const fileBytes = new Uint8Array(arrayBuffer);
   const combined = new Uint8Array(metaBytes.length + fileBytes.length);
   combined.set(metaBytes, 0);
   combined.set(fileBytes, metaBytes.length);
-  const res = await fetch("/api/studio-settings/upload", { method: "POST", body: combined });
+  const res = await fetch("/api/studio-settings/upload", { method: "POST", headers: authHeaders(), body: combined });
   return res.json();
 }
 
@@ -565,7 +572,7 @@ async function loadRecordingsManagement() {
   list.innerHTML = `<p style="color:var(--text-dim); font-size:0.85rem;">Loading…</p>`;
 
   try {
-    const res = await fetch("/api/recordings");
+    const res = await fetch("/api/recordings", { headers: authHeaders() });
     const data = await res.json();
 
     if (!data.sessions.length) {
@@ -615,14 +622,14 @@ async function loadRecordingsManagement() {
 
       header.querySelector(".session-delete-btn").addEventListener("click", async () => {
         if (!confirm("Delete this entire recording session?")) return;
-        await fetch(`/api/sessions/${session.sessionId}`, { method: "DELETE" });
+        await fetch(`/api/sessions/${session.sessionId}`, { method: "DELETE", headers: authHeaders() });
         loadRecordingsManagement();
       });
 
       filesDiv.querySelectorAll(".file-delete-btn").forEach((btn) => {
         btn.addEventListener("click", async (e) => {
           e.preventDefault();
-          await fetch(btn.dataset.url, { method: "DELETE" });
+          await fetch(btn.dataset.url, { method: "DELETE", headers: authHeaders() });
           loadRecordingsManagement();
         });
       });
@@ -655,6 +662,8 @@ async function attemptUnlock() {
       return;
     }
     role = data.role;
+    token = data.token;
+    localStorage.setItem("podcast-studio-token", token);
     document.getElementById("lock-card").style.display = "none";
     document.getElementById("settings-card").style.display = "block";
     document.getElementById("plugins-card").style.display = "block";

@@ -1539,6 +1539,7 @@ const state = {
   myId: null,
   username: "",
   role: "",            // "host", "member", "guest"
+  token: "",           // session token from /api/auth, sent as Authorization: Bearer <token>
   localStream: null,
   peers: {},          // { peerId: { pc, username, audioEl, stream } }
   isRecording: false,
@@ -1566,6 +1567,12 @@ const state = {
   uploadedCount: 0,
   uploadFailedCount: 0,
 };
+
+// Attach this to any mutating fetch() that used to send a client-asserted
+// "role" field — the server now verifies role from this token instead.
+function authHeaders() {
+  return state.token ? { Authorization: `Bearer ${state.token}` } : {};
+}
 
 // ═══════════════════════════════════════════════
 //  STUDIO LOOK & FEEL (host-customizable branding)
@@ -1845,6 +1852,7 @@ document.getElementById("join-btn").addEventListener("click", async () => {
     }
 
     state.role = authData.role;
+    state.token = authData.token;
   } catch (e) {
     authError.textContent = "Could not connect to server";
     authError.style.display = "block";
@@ -1856,6 +1864,7 @@ document.getElementById("join-btn").addEventListener("click", async () => {
   // Save credentials for auto-reconnect on refresh
   localStorage.setItem("podcast-studio-username", username);
   localStorage.setItem("podcast-studio-password", password);
+  localStorage.setItem("podcast-studio-token", state.token);
 
   // Acquire media
   const micId = document.getElementById("mic-select").value;
@@ -1891,7 +1900,7 @@ document.getElementById("join-btn").addEventListener("click", async () => {
   state.ws = new WebSocket(`${wsProto}//${location.host}`);
 
   state.ws.onopen = () => {
-    state.ws.send(JSON.stringify({ type: "join", room: "studio", username, role: state.role }));
+    state.ws.send(JSON.stringify({ type: "join", room: "studio", username, token: state.token }));
   };
 
   state.ws.onmessage = (e) => handleSignal(JSON.parse(e.data));
@@ -2455,6 +2464,7 @@ async function uploadChunk(blob, meta) {
 
     const response = await fetch("/api/upload-chunk", {
       method: "POST",
+      headers: authHeaders(),
       body: combined,
     });
 
@@ -2470,7 +2480,7 @@ async function finalizeUpload(trackType) {
   try {
     const response = await fetch("/api/finalize", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         sessionId: state.sessionId,
         participantId: state.myId,
@@ -2914,7 +2924,7 @@ function showDownloads() {
     list.appendChild(loadingItem);
 
     // Fetch server recordings asynchronously
-    fetch(`/api/sessions/${state.sessionId}`)
+    fetch(`/api/sessions/${state.sessionId}`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         loadingItem.remove();
@@ -3409,7 +3419,7 @@ function renderServerClipList() {
   container.querySelectorAll(".clip-remove-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
       if (!confirm(`Delete "${btn.parentElement.querySelector(".clip-server-name").textContent}" from server?`)) return;
-      await fetch(`/api/clips/${btn.dataset.clipId}`, { method: "DELETE" });
+      await fetch(`/api/clips/${btn.dataset.clipId}`, { method: "DELETE", headers: authHeaders() });
       loadServerClips();
     });
   });
@@ -3424,7 +3434,7 @@ function renderServerClipList() {
       try {
         const res = await fetch(`/api/clips/${clipId}/rename`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHeaders() },
           body: JSON.stringify({ name: newName.trim() }),
         });
         const data = await res.json();
@@ -3482,7 +3492,7 @@ document.getElementById("clip-file-input").addEventListener("change", async (e) 
         combined.set(metaBytes, 0);
         combined.set(fileBytes, metaBytes.length);
 
-        fetch("/api/clips", { method: "POST", body: combined })
+        fetch("/api/clips", { method: "POST", headers: authHeaders(), body: combined })
           .then((r) => r.json())
           .then((data) => {
             if (data.ok) {

@@ -1414,6 +1414,7 @@
     let saveTimeout       = null;
     let currentUser       = localStorage.getItem('podcast-studio-username') || null;
     let currentRole       = localStorage.getItem('podcast-studio-role') || 'guest';
+    let currentToken      = localStorage.getItem('podcast-studio-token') || null;
     let activeTab         = 'shared';
     let quoteMode         = false;
     let sources           = [];
@@ -2344,9 +2345,13 @@
       document.getElementById('focal-meta').textContent  = 'Add a source to get started';
     }
 
+    function authHeaders() {
+      return currentToken ? { Authorization: `Bearer ${currentToken}` } : {};
+    }
+
     async function deleteSource(id) {
       if (!currentGameSlug) return;
-      await fetch(`/api/prep-sources/${encodeURIComponent(currentGameSlug)}/${id}?user=${encodeURIComponent(currentUser || '')}&role=${encodeURIComponent(currentRole || '')}`, { method: 'DELETE' });
+      await fetch(`/api/prep-sources/${encodeURIComponent(currentGameSlug)}/${id}?user=${encodeURIComponent(currentUser || '')}`, { method: 'DELETE', headers: authHeaders() });
       if (activeSourceId === id) resetFocalPane();
       await loadSources();
     }
@@ -2380,8 +2385,8 @@
       try {
         await fetch(`/api/prep-sources/${encodeURIComponent(currentGameSlug)}/${id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, user: currentUser || '', role: currentRole || '' }),
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ name, user: currentUser || '' }),
         });
         // Update in local sources array so focal header stays in sync
         const s = sources.find(x => x.id === id);
@@ -2447,7 +2452,7 @@
       const body = new Uint8Array(metaBytes.length + fileBytes.length);
       body.set(metaBytes); body.set(fileBytes, metaBytes.length);
       try {
-        const res = await fetch('/api/prep-sources/upload', { method: 'POST', body: body.buffer });
+        const res = await fetch('/api/prep-sources/upload', { method: 'POST', headers: authHeaders(), body: body.buffer });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Upload failed');
         setSmMsg('file', `✓ "${file.name}" added.`, 'ok');
@@ -2468,7 +2473,7 @@
       try {
         const res = await fetch('/api/prep-sources/url', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ user: currentUser || '', game: currentGameSlug, url }),
         });
         const data = await res.json();
@@ -2744,7 +2749,12 @@
       try {
         const res  = await fetch('/api/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pass }) });
         const data = await res.json();
-        if (data.role) { localStorage.setItem('podcast-studio-role', data.role); applyUser(name); }
+        if (data.role) {
+          localStorage.setItem('podcast-studio-role', data.role);
+          currentToken = data.token;
+          localStorage.setItem('podcast-studio-token', currentToken);
+          applyUser(name);
+        }
         else { loginError.classList.remove('hidden'); loginPassInput.value = ''; loginPassInput.focus(); }
       } catch {
         loginError.textContent = 'Could not reach server.'; loginError.classList.remove('hidden');

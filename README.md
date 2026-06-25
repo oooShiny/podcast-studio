@@ -43,6 +43,11 @@ Edit `.env` and fill in your own values:
 | `GUEST_PASSWORD` | Recommended | Password for the **guest** role (invited participants) |
 | `WEBHOOK_SECRET` | No | Secret for the GitHub auto-deploy webhook (`POST /webhook`); leave unset to disable |
 | `GOOGLE_VISION_API_KEY` | No | Enables OCR in Prep Notes, via the bundled `google-vision-ocr` plugin |
+| `DEMO_MODE` | No | Turns on guardrails for a public demo deployment — see [Public Demo Deployments](#public-demo-deployments) |
+| `DEMO_WIPE_INTERVAL_MINUTES` | No — defaults to `25` | How often `DEMO_MODE` wipes all demo data |
+| `DEMO_WIPE_MAX_DEFER_CYCLES` | No — defaults to `3` | Max consecutive wipes deferred while a room is active |
+| `DEMO_STORAGE_CAP_MB` | No — defaults to `300` | Combined size cap (clips/screenshots/branding) in `DEMO_MODE` |
+| `DEMO_ALLOWED_ORIGIN` | No | CORS allowlist for `DEMO_MODE`; same-origin only if unset |
 
 > If a role password is left unset, that role falls back to an insecure default (`host123` / `member123` / `guest`, see `lib/auth.js`). Always set your own before running anywhere beyond `localhost`.
 
@@ -105,6 +110,42 @@ fly deploy
 ### Option C: Railway / Render
 
 Push to a Git repo and connect it — both platforms auto-detect Node.js.
+
+## Public Demo Deployments
+
+Want prospective users to try Podcast Studio without installing anything? Run a public,
+single-shared-instance demo by setting `DEMO_MODE=1` in `.env`. This turns on:
+
+- **Local-only recording** — `/api/upload-chunk` and `/api/finalize` become no-ops; nothing
+  written to disk on the server. Each participant's full-quality recording still exists in
+  their own browser and can be downloaded directly, same as always.
+- **No Prep Notes file uploads** — uploading video/audio/image/PDF sources returns a 403;
+  URL/bookmark sources keep working since they never touch server disk.
+- **Tighter upload caps** — clips, screenshots, and branding images get lower size limits
+  (5MB / 3MB / 2MB respectively, vs. 20MB / 10MB / 8MB normally), plus a combined
+  `DEMO_STORAGE_CAP_MB` (default 300MB) backstop across those three directories.
+- **Scheduled full data wipe** — every `DEMO_WIPE_INTERVAL_MINUTES` (default 25), all
+  recordings, prep notes/sources, screenshots, clips, and branding are deleted and studio
+  settings reset to defaults. A wipe is deferred (up to `DEMO_WIPE_MAX_DEFER_CYCLES` times)
+  while a room is actively in use, so it won't cut off a live session.
+- **Rate limiting** — login attempts and general API traffic are capped per IP.
+- **Restrictive CORS** — no wildcard `Access-Control-Allow-Origin`; set `DEMO_ALLOWED_ORIGIN`
+  if your front end is served from a different origin, otherwise same-origin only.
+
+Before exposing a demo publicly:
+
+- Use **dedicated demo-only passwords** for `HOST_PASSWORD` / `MEMBER_PASSWORD` /
+  `GUEST_PASSWORD` — never reuse a real deployment's.
+- Don't set `GOOGLE_VISION_API_KEY` (or drop `google-vision-ocr` from `PLUGINS_ENABLED`)
+  on a public demo box — that plugin calls a paid Google Cloud Vision API with no
+  usage limiting, so an anonymous visitor could run up real charges.
+- Only set `WEBHOOK_SECRET` on a demo box if you specifically want auto-deploy enabled
+  there too — it's HMAC-verified, so it's safe, just don't enable it by accident.
+- The login password is stored in the browser's `localStorage` for auto-reconnect, same
+  as in a normal deployment — this is a pre-existing tradeoff, not something `DEMO_MODE`
+  changes.
+
+`DEMO_MODE` is entirely opt-in and changes no behavior for a normal self-hosted instance.
 
 ## HTTPS Requirement
 
