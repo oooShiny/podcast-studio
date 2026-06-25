@@ -6,7 +6,7 @@ A minimal, browser-based podcast recording platform. No installs required — gu
 
 - **WebRTC mesh** connects up to 4–5 participants with real-time audio/video
 - **Local recording** captures each person's microphone directly in the browser (full quality, not compressed WebRTC audio)
-- **Multi-track workflow** — each participant downloads their own high-quality recording, you combine them in post
+- **Multi-track workflow** — each participant's track auto-uploads to the server as they record (a local download is always available too); the host reviews and manages sessions from `/settings`
 - **Live audio meters** and speaking indicators
 - **Camera support** (optional) so you can see each other while recording
 - **Chat, soundboard, and screenshots** alongside the recording session
@@ -69,13 +69,14 @@ To test with multiple participants on the same machine, just open additional bro
 
 ## How Recording Works
 
-Each participant records their own microphone audio locally in the browser using the MediaRecorder API. This means:
+Each participant records their own microphone audio locally in the browser using the MediaRecorder API, then streams it to the server in small chunks as they go. This means:
 
 1. **Full quality** — audio is captured before any WebRTC compression
-2. **No server upload needed** — recordings stay on each person's machine
-3. **Independent tracks** — each person downloads their own `.webm` file
+2. **Crash-resistant** — chunks upload continuously during the session instead of one big upload at the end
+3. **Sync markers** — a short tone plays (and gets recorded) at the start and stop of each track, making it easy to line tracks up later
+4. **Independent tracks** — the server stitches each participant's chunks into one `.webm` file per person; a local copy can also be downloaded directly from the browser as a backup
 
-After recording, you (the host) collect everyone's audio files and sync them in your DAW or editor (Audacity, Reaper, Descript, etc.).
+After recording, the host browses, downloads, and manages all sessions and tracks from `/settings`, then syncs them in a DAW or editor (Audacity, Reaper, Descript, etc.).
 
 ## Deployment Options
 
@@ -135,7 +136,7 @@ WebRTC requires HTTPS in production (except on localhost). Any deployment method
 └─────────────────┘
 ```
 
-The server only handles signaling (helping peers find each other). All audio/video flows directly between participants — the server never sees or processes any media.
+The server handles signaling (helping peers find each other) and, separately, receives each participant's recorded audio as it streams in over HTTP in small chunks for storage (see [How Recording Works](#how-recording-works)). The live audio/video shown above is a different path — it flows directly between participants over WebRTC and never touches the server.
 
 ## Plugins
 
@@ -211,20 +212,16 @@ Plugins write to their own isolated directory (`plugins-data/<name>/`, via `ctx.
 
 ## Limitations (Prototype)
 
-- **No automatic upload** — participants manually download recordings
-- **No auto-sync** — tracks need to be aligned in post-production
+- **Manual track alignment** — a sync tone is embedded at the start/stop of each recording, but tracks still need to be lined up by ear/marker in post-production
 - **Mesh networking** — works well for 2–5 people, would need an SFU for larger groups
 - **No reconnection** — if a participant's connection drops, they need to rejoin
 - **WebM format** — some DAWs prefer WAV/MP3 (easy to convert with ffmpeg)
 
 ## Future Improvements
 
-- [ ] Server-side upload with auto-sync markers (beep tone at start)
 - [ ] WAV recording option for higher quality
-- [ ] Automatic track alignment
-- [ ] Session history and file management
+- [ ] Automatic track alignment (auto-detect the sync tone and align tracks, instead of just marking them)
 - [ ] Video recording (separate high-quality track per participant)
-- [ ] Progressive upload (chunked, crash-resistant)
 - [ ] Inline playback/timestamping for uploaded audio sources in Prep Notes
 
 ## Converting WebM to WAV
