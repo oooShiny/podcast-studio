@@ -134,6 +134,7 @@
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    text-decoration: none;
   }
 
   .btn-primary {
@@ -143,11 +144,21 @@
     margin-top: 0.8rem;
   }
 
-  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:hover,
+  .btn-secondary:hover { filter: brightness(1.1); }
   .btn-primary:disabled {
     opacity: 0.4;
     cursor: not-allowed;
   }
+
+  .btn-secondary {
+      color: var(--text);
+      border: 1px solid var(--border);
+      background-color: color-mix(in srgb, currentColor 20%, transparent);
+      padding: 0.75rem;
+      font-size: 80%;
+  }
+
 
   .btn-icon {
       height: 1em;
@@ -1335,10 +1346,10 @@
     <div id="auth-error" style="color:var(--accent); font-size:0.85rem; margin-bottom:0.5rem; display:none;"></div>
 
     <button class="btn btn-primary" id="join-btn" disabled>Join Studio</button>
-
-    <a href="/prep" style="display:block; margin-top:0.75rem; font-size:0.8rem; color:var(--text-dim); text-decoration:none; opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">Episode Prep →</a>
-    <a href="/settings" style="display:block; margin-top:0.4rem; font-size:0.8rem; color:var(--text-dim); text-decoration:none; opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">Studio Settings →</a>
-
+    <div style="display: flex; justify-content: space-between; padding-top: 1rem;">
+        <a href="/prep" class="btn btn-secondary">Episode Prep →</a>
+        <a href="/settings" class="btn btn-secondary">Studio Settings →</a>
+    </div>
     <!-- Local recordings from previous sessions -->
     <div id="lobby-recordings" style="display:none; margin-top:1.5rem; text-align:left;">
       <div style="font-size:0.72rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-dim); margin-bottom:0.5rem;">Previous Recordings</div>
