@@ -160,6 +160,13 @@ module.exports = {
       NODE_ENV: "production",
       PORT: 3000,
       WEBHOOK_SECRET: "${WEBHOOK_SECRET}",
+      // Deploying a public demo instead of a private one? Set DEMO_MODE: "1" here
+      // (plus dedicated demo passwords below) to turn on the demo guardrails —
+      // local-only recording, scheduled data wipes, rate limiting, etc.
+      // See "Public Demo Deployments" in README.md. Other knobs:
+      // DEMO_WIPE_INTERVAL_MINUTES, DEMO_WIPE_MAX_DEFER_CYCLES,
+      // DEMO_STORAGE_CAP_MB, DEMO_ALLOWED_ORIGIN.
+      // HOST_PASSWORD: "...", MEMBER_PASSWORD: "...", GUEST_PASSWORD: "...",
     },
     // Restart if memory exceeds 500MB (shouldn't happen, safety net)
     max_memory_restart: "500M",
