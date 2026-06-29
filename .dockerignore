@@ -1,0 +1,13 @@
+node_modules
+recordings
+prep-notes
+prep-sources
+screenshots
+clips
+branding
+plugins-data
+.env
+studio-settings.json
+plugins-settings.json
+sessions.json
+*.log
