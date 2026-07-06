@@ -3,11 +3,13 @@
   var PAGES = [
     { id: "studio", href: "/", label: "Studio" },
     { id: "prep", href: "/prep", label: "Prep" },
+    { id: "editor", href: "/editor.html", label: "Editor", hostOnly: true },
     { id: "settings", href: "/settings", label: "Settings", hostOnly: true },
   ];
 
   function render(el, opts) {
     if (!el) return;
+    el.className = 'ps-nav-header';
     opts = opts || {};
     var links = PAGES
       .filter(function (p) { return p.id !== opts.current; })
