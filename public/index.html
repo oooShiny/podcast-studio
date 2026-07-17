@@ -1751,12 +1751,17 @@ async function enumerateDevices() {
   document.getElementById("join-btn").disabled = micSelect.children.length === 0;
 }
 
+// Set right before an automatic (saved-credentials) join click, so the click handler
+// can tell it apart from a real, manual submission — see comment at its read site.
+let autoLoginInFlight = false;
+
 enumerateDevices().then(() => {
   const su = localStorage.getItem("podcast-studio-username");
   const sp = localStorage.getItem("podcast-studio-password");
   const joinBtn = document.getElementById("join-btn");
   if (su && sp && joinBtn && !joinBtn.disabled) {
     document.getElementById("password").value = sp;
+    autoLoginInFlight = true;
     joinBtn.click();
   }
 });
@@ -1836,6 +1841,11 @@ showLobbyRecordings();
 //  JOIN WITH PASSWORD AUTH
 // ═══════════════════════════════════════════════
 document.getElementById("join-btn").addEventListener("click", async () => {
+  // Capture and reset immediately — this click may be the automatic saved-credentials
+  // one fired by the enumerateDevices().then() block above, or a real user click.
+  const isAutoLogin = autoLoginInFlight;
+  autoLoginInFlight = false;
+
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value.trim();
   const authError = document.getElementById("auth-error");
@@ -1857,8 +1867,16 @@ document.getElementById("join-btn").addEventListener("click", async () => {
     const authData = await authRes.json();
 
     if (!authData.ok) {
-      authError.textContent = authData.error || "Invalid password";
-      authError.style.display = "block";
+      if (isAutoLogin) {
+        // The saved password no longer works (e.g. it was rotated) — clear it instead
+        // of leaving it sitting in the field, where a user retrying "their" password
+        // would actually keep resubmitting this stale one without realizing it.
+        localStorage.removeItem("podcast-studio-password");
+        document.getElementById("password").value = "";
+      } else {
+        authError.textContent = authData.error || "Invalid password";
+        authError.style.display = "block";
+      }
       return;
     }
 
