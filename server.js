@@ -13,6 +13,7 @@ const prepSourcesModule = require("./lib/prep-sources");
 const screenshotsModule = require("./lib/screenshots");
 const studioSettingsModule = require("./lib/studio-settings");
 const roomsModule = require("./lib/rooms");
+const editorModule = require("./lib/editor");
 const { loadPlugins } = require("./lib/plugin-loader");
 const { createLimiter } = require("./lib/rate-limit");
 
@@ -62,6 +63,7 @@ const coreModules = [
   screenshotsModule,
   studioSettingsModule,
   roomsModule,
+  editorModule,
 ];
 
 for (const mod of coreModules) {
@@ -137,6 +139,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url === "/api/config") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ demoMode: DEMO_MODE, wipeIntervalMinutes: DEMO_WIPE_INTERVAL_MINUTES }));
+    return;
+  }
+
   for (const route of routes) {
     if (route.method === req.method && route.match(req.url)) {
       return route.handler(req, res);
@@ -145,7 +153,7 @@ const server = http.createServer((req, res) => {
 
   // ── Root-level HTML tools ──
   if (req.method === "GET" && (req.url === "/prep" || req.url === "/prep.html")) {
-    const p = path.join(__dirname, "prep.html");
+    const p = path.join(__dirname, "public", "prep.html");
     return fs.readFile(p, (err, data) => {
       if (err) { res.writeHead(404); res.end("Not found"); return; }
       res.writeHead(200, { "Content-Type": "text/html" });
@@ -154,7 +162,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === "GET" && (req.url === "/settings" || req.url === "/settings.html")) {
-    const p = path.join(__dirname, "settings.html");
+    const p = path.join(__dirname, "public", "settings.html");
     return fs.readFile(p, (err, data) => {
       if (err) { res.writeHead(404); res.end("Not found"); return; }
       res.writeHead(200, { "Content-Type": "text/html" });

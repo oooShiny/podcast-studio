@@ -11,35 +11,10 @@
     <meta name="apple-mobile-web-app-title" content="Podcast Studio" />
     <link rel="manifest" href="/favicon/site.webmanifest" />
     <link rel="stylesheet" href="/nav-header.css" />
+    <link rel="stylesheet" href="/styles.css" />
     <script src="/nav-header.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
-
-  :root {
-    --bg: #024;
-    --surface: #001327;
-    --surface-2: #024;
-    --border: #2a2a38;
-    --text: #e8e6f0;
-    --text-dim: #8a879a;
-    --menu-text: #8a879a;
-    --accent: #ef4a52;
-    --accent-glow: rgba(239, 74, 82, 0.25);
-    --green: #34d399;
-    --green-glow: rgba(52, 211, 153, 0.2);
-    --amber: #fbbf24;
-    --radius: 12px;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+  body { overflow-x: hidden; }
 
   /* ── Lobby ── */
   .lobby {
@@ -87,21 +62,6 @@
     color: var(--text-dim);
     font-size: 0.95rem;
     margin-bottom: 2rem;
-  }
-
-  .field {
-    margin-bottom: 1.2rem;
-    text-align: left;
-  }
-
-  .field label {
-    display: block;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 0.45rem;
   }
 
   .field input, .field select {
@@ -1307,9 +1267,135 @@
     transition: opacity .12s;
   }
   .studio-ss-thumb:hover .studio-ss-time { opacity: 1; }
+
+  /* ── Demo Mode Banner ── */
+  body.demo-mode-active { padding-top: 2.5rem; }
+
+  .demo-banner {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 500;
+    background: rgba(251, 191, 36, 0.12);
+    border-bottom: 1px solid rgba(251, 191, 36, 0.35);
+    padding: 0.5rem 1rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-size: 0.82rem;
+    color: var(--amber);
+    font-weight: 500;
+    letter-spacing: 0.03em;
+  }
+  .demo-banner.active { display: flex; }
+
+  .demo-banner-info-btn {
+    background: none;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    color: var(--amber);
+    border-radius: 4px;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .demo-banner-info-btn:hover { background: rgba(251, 191, 36, 0.1); }
+
+  /* ── Demo Mode Modal ── */
+  .demo-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 600;
+    align-items: center;
+    justify-content: center;
+  }
+  .demo-modal-overlay.active { display: flex; }
+
+  .demo-modal-card {
+    background: var(--surface);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 440px;
+    width: 90%;
+  }
+
+  .demo-modal-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .demo-modal-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--amber);
+    margin-bottom: 0.3rem;
+  }
+
+  .demo-modal-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+  }
+
+  .demo-modal-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .demo-modal-item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    font-size: 0.875rem;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .demo-modal-item-icon {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: rgba(251, 191, 36, 0.12);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+  }
+
+  .demo-modal-item code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    background: rgba(255,255,255,0.07);
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+  }
 </style>
 </head>
 <body>
+
+<!-- ═══════ DEMO MODE BANNER ═══════ -->
+<div class="demo-banner" id="demo-banner">
+  <span>&#9888; Demo Mode Active — data is periodically wiped</span>
+  <button class="demo-banner-info-btn" onclick="showDemoModal()">What does this mean?</button>
+</div>
+
+<!-- ═══════ DEMO MODE MODAL ═══════ -->
+<div class="demo-modal-overlay" id="demo-modal">
+  <div class="demo-modal-card">
+    <div class="demo-modal-icon">&#9888;</div>
+    <div class="demo-modal-title">Demo Mode Active</div>
+    <div class="demo-modal-subtitle">This is a live public demo of Podcast Studio. A few things are different from a self-hosted instance:</div>
+    <div class="demo-modal-items" id="demo-modal-items"></div>
+    <button class="btn btn-primary" style="width:100%;" onclick="dismissDemoModal()">Got it</button>
+  </div>
+</div>
 
 <!-- ═══════ LOBBY ═══════ -->
 <div class="lobby" id="lobby">
@@ -1577,6 +1663,9 @@ const state = {
   mixChunkIndex: 0,       // chunk counter for mix track
   uploadedCount: 0,
   uploadFailedCount: 0,
+  // Demo mode
+  demoMode: false,
+  wipeIntervalMinutes: 25,
 };
 
 // Attach this to any mutating fetch() that used to send a client-asserted
@@ -1689,6 +1778,52 @@ async function loadStudioSettings() {
 }
 
 loadStudioSettings();
+
+// ═══════════════════════════════════════════════
+//  DEMO MODE
+// ═══════════════════════════════════════════════
+async function loadConfig() {
+  try {
+    const res = await fetch("/api/config");
+    if (!res.ok) return;
+    const cfg = await res.json();
+    state.demoMode = !!cfg.demoMode;
+    state.wipeIntervalMinutes = cfg.wipeIntervalMinutes || 25;
+    if (state.demoMode) initDemoMode();
+  } catch {}
+}
+
+function initDemoMode() {
+  document.body.classList.add("demo-mode-active");
+  document.getElementById("demo-banner").classList.add("active");
+
+  const items = [
+    { icon: "⏱", text: `All data (rooms, clips, recordings, notes) is wiped every ${state.wipeIntervalMinutes} minutes to keep the demo fresh.` },
+    { icon: "📦", text: "File uploads are limited to 2&nbsp;MB." },
+    { icon: "🔑", text: "Shared passwords: <code>host123</code> (host), <code>member123</code> (member), <code>guest</code> (guest)." },
+    { icon: "🚦", text: "Rate limiting is active to prevent abuse." },
+  ];
+
+  const container = document.getElementById("demo-modal-items");
+  container.innerHTML = items.map(item => `
+    <div class="demo-modal-item">
+      <div class="demo-modal-item-icon">${item.icon}</div>
+      <div>${item.text}</div>
+    </div>
+  `).join("");
+
+  showDemoModal();
+}
+
+function showDemoModal() {
+  document.getElementById("demo-modal").classList.add("active");
+}
+
+function dismissDemoModal() {
+  document.getElementById("demo-modal").classList.remove("active");
+}
+
+loadConfig();
 
 // ═══════════════════════════════════════════════
 //  DEVICE ENUMERATION
@@ -2998,6 +3133,15 @@ function showDownloads() {
           `;
           list.appendChild(item);
         });
+
+        const editLink = document.createElement("a");
+        editLink.href = `/editor.html?session=${state.sessionId}`;
+        editLink.target = "_blank";
+        editLink.rel = "noopener";
+        editLink.className = "btn btn-secondary";
+        editLink.style.cssText = "display:block; text-align:center; margin-top:0.75rem; font-size:0.82rem;";
+        editLink.textContent = "Edit Episode →";
+        list.appendChild(editLink);
       })
       .catch(() => {
         loadingItem.innerHTML = '<span style="color:var(--text-dim)">Could not load server recordings</span>';
@@ -3093,6 +3237,17 @@ function showPostSession() {
       URL.revokeObjectURL(url);
     });
   });
+
+  if (state.sessionId) {
+    const editLink = document.createElement("a");
+    editLink.href = `/editor.html?session=${state.sessionId}`;
+    editLink.target = "_blank";
+    editLink.rel = "noopener";
+    editLink.className = "btn btn-secondary";
+    editLink.style.cssText = "display:block; text-align:center; margin-top:0.5rem; margin-bottom:0.25rem; font-size:0.85rem;";
+    editLink.textContent = "Edit Episode →";
+    list.after(editLink);
+  }
 
   document.getElementById("studio").classList.remove("active");
   document.getElementById("post-session-panel").classList.add("active");

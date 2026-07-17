@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Episode Editor</title>
+<link rel="icon" type="image/png" href="/favicon/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+<link rel="shortcut icon" href="/favicon/favicon.ico" />
+<link rel="stylesheet" href="/nav-header.css" />
+<link rel="stylesheet" href="/styles.css" />
+<script src="/nav-header.js"></script>
+<style>
+
+  .page-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 1.5rem 4rem;
+  }
+
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .top-bar h1 { font-size: 1.35rem; }
+  .top-bar .session-id { color: var(--text-dim); font-size: 0.82rem; }
+
+
+  .card h2 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.65rem 1.25rem;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-secondary {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn:hover { filter: brightness(1.12); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+
+  /* ── Lock card ── */
+  .lock-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+  }
+  .lock-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+  .lock-card h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+  .lock-card p { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.25rem; }
+  .lock-card input[type="password"] {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    outline: none;
+    margin-bottom: 0.75rem;
+    transition: border-color 0.2s;
+  }
+  .lock-card input:focus { border-color: var(--accent); }
+  .lock-card .btn { width: 100%; }
+  .lock-error {
+    color: var(--accent);
+    font-size: 0.82rem;
+    margin-top: 0.5rem;
+  }
+
+  /* ── Track list ── */
+  .track-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .track-row:last-child { border-bottom: none; }
+  .track-left { display: flex; align-items: center; gap: 0.5rem; }
+  .track-label { font-size: 0.88rem; font-weight: 600; }
+  .track-sub { font-size: 0.75rem; color: var(--text-dim); }
+  .track-offset {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .offset-input {
+    width: 70px;
+    padding: 0.25rem 0.5rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.82rem;
+    text-align: right;
+    outline: none;
+  }
+  .offset-input:focus { border-color: var(--accent); }
+
+  input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+  /* ── Waveform area ── */
+  #multitrack-container {
+    margin-top: 1rem;
+    border-radius: 8px;
+    overflow: hidden;
+    min-height: 60px;
+    background: rgba(0,0,0,0.2);
+    position: relative;
+  }
+  .waveform-loading {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+
+  /* ── Transport ── */
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .time-display {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .align-status {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+  .align-status.ok { color: #4ade80; }
+  .align-status.err { color: var(--accent); }
+
+  /* ── Trim ── */
+  .trim-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .trim-field { display: flex; flex-direction: column; gap: 0.35rem; }
+  .trim-field label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-dim);
+  }
+  .trim-input {
+    width: 120px;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+  }
+  .trim-input:focus { border-color: var(--accent); }
+  .trim-hint { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.5rem; }
+
+  /* ── Export ── */
+  .export-row {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .intro-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .intro-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-dim);
+    min-width: 80px;
+  }
+  .intro-file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.9rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .intro-file-label:hover { border-color: var(--accent); }
+  #intro-filename { color: var(--text-dim); font-size: 0.82rem; }
+  .intro-clear {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0 0.25rem;
+  }
+  .intro-clear:hover { color: var(--text); }
+
+  /* ── Processing (auto-level / silence removal, near track editing) ── */
+  .processing-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .proc-toggle {
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+  }
+  .proc-hint {
+    color: var(--text-dim);
+    font-weight: 400;
+    font-size: 0.8rem;
+  }
+
+  .silence-opts {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+  .silence-opts input[type="number"] {
+    width: 60px;
+    padding: 0.3rem 0.5rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.82rem;
+    text-align: right;
+    outline: none;
+  }
+  .silence-opts input:focus { border-color: var(--accent); }
+
+  .ffmpeg-notice {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+  }
+
+  /* ── Export actions ── */
+  .export-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+  .export-status {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  .export-status.processing { color: var(--accent); }
+  .export-status.done { color: #4ade80; }
+  .export-status.error { color: var(--accent); }
+
+  .export-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .export-download:hover { text-decoration: underline; }
+
+  /* ── Session picker ── */
+  .session-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    gap: 1rem;
+    transition: background 0.15s;
+  }
+  .session-row:hover { background: rgba(255,255,255,0.04); }
+  .session-row:last-child { border-bottom: none; }
+  .session-row-info { flex: 1; min-width: 0; }
+  .session-row-date { font-size: 0.9rem; font-weight: 600; }
+  .session-row-meta { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.2rem; }
+  .session-row-open {
+    color: var(--accent);
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .picker-empty {
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    padding: 1rem 0;
+    text-align: center;
+  }
+
+  /* ── Past exports ── */
+  .export-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .export-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    gap: 0.75rem;
+  }
+  .export-item:last-child { border-bottom: none; }
+  .export-item .name { color: var(--text-dim); }
+  .export-item a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .export-item a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- ── Lock screen ── -->
+<div id="lock-wrap" class="lock-wrap" style="display:none;">
+  <div class="lock-card">
+    <h2>Episode Editor</h2>
+    <p>Enter your studio password to continue.</p>
+    <input type="password" id="lock-password" placeholder="Password" />
+    <div id="lock-error" class="lock-error" style="display:none;"></div>
+    <button class="btn btn-primary" id="lock-submit" style="margin-top:0.75rem;">Unlock</button>
+  </div>
+</div>
+
+<!-- ── Editor ── -->
+<div id="editor-wrap" style="display:none;">
+  <div class="page-wrap">
+
+    <div id="ps-nav-header" style="margin-bottom:1rem;"></div>
+
+    <div class="top-bar">
+      <div>
+        <h1>Episode Editor</h1>
+        <div class="session-id" id="session-label" style="display:none;"></div>
+      </div>
+      <div style="display:flex;gap:1.25rem;align-items:center;">
+        <a href="#" id="all-sessions-link" class="back-link" style="display:none;">← All Sessions</a>
+        <a href="/" class="back-link">← Studio</a>
+      </div>
+    </div>
+
+    <!-- Session picker (shown when no session is selected) -->
+    <div class="card" id="picker-card" style="display:none;">
+      <h2>Recording Sessions</h2>
+      <div id="session-list"></div>
+    </div>
+
+    <!-- Editor sections (shown when a session is selected) -->
+    <div id="editor-sections" style="display:none;">
+
+    <!-- Tracks card -->
+    <div class="card" id="tracks-card">
+      <h2>Tracks</h2>
+      <div id="track-rows"></div>
+
+      <div id="multitrack-container">
+        <div class="waveform-loading" id="wf-loading">Loading waveforms…</div>
+      </div>
+
+      <div class="transport">
+        <button class="btn btn-secondary" id="play-btn">▶ Play</button>
+        <button class="btn btn-secondary" id="preview-trim-btn" title="Preview the trimmed selection with Auto-Level / silence removal applied">▶ Preview</button>
+        <span class="time-display" id="time-display">0:00 / 0:00</span>
+        <button class="btn btn-secondary" id="align-btn">Auto-Align Tracks</button>
+        <span class="align-status" id="align-status"></span>
+      </div>
+
+      <div class="processing-row">
+        <label class="proc-toggle">
+          <input type="checkbox" id="autolevel-enabled" />
+          Auto-Level <span class="proc-hint">(Levelator-style — evens out volume across speakers)</span>
+        </label>
+        <label class="proc-toggle">
+          <input type="checkbox" id="silence-enabled" />
+          Remove silence
+        </label>
+        <div class="silence-opts" id="silence-opts" style="display:none;">
+          threshold
+          <input type="number" id="silence-threshold" value="-45" step="1" max="0" title="dB threshold" />
+          dB &nbsp; min gap
+          <input type="number" id="silence-min-dur" value="1.0" step="0.1" min="0.1" title="Minimum silence duration (seconds)" />
+          s
+        </div>
+      </div>
+    </div>
+
+    <!-- Trim card -->
+    <div class="card">
+      <h2>Trim</h2>
+      <div class="trim-row">
+        <div class="trim-field">
+          <label>Start (seconds)</label>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <input type="number" class="trim-input" id="trim-start" min="0" step="0.1" placeholder="0.0" />
+            <button class="btn btn-secondary" id="set-start-btn" style="font-size:0.78rem;padding:0.4rem 0.7rem;white-space:nowrap;">Set Here</button>
+          </div>
+        </div>
+        <div class="trim-field">
+          <label>End (seconds)</label>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <input type="number" class="trim-input" id="trim-end" min="0" step="0.1" placeholder="leave blank = no trim" />
+            <button class="btn btn-secondary" id="set-end-btn" style="font-size:0.78rem;padding:0.4rem 0.7rem;white-space:nowrap;">Set Here</button>
+          </div>
+        </div>
+      </div>
+      <p class="trim-hint">Drag on the waveform to select a region, or use "Set Here" buttons to capture the current playhead. After Auto-Align, the start is pre-set to just after the sync tone.</p>
+    </div>
+
+    <!-- Export card -->
+    <div class="card">
+      <h2>Export</h2>
+      <div class="export-row">
+
+        <div id="ffmpeg-notice" class="ffmpeg-notice" style="display:none;">
+          FFmpeg is not available on this server — sync detection and export are disabled.
+          To enable them, install FFmpeg and restart the server.
+        </div>
+
+        <div class="intro-row">
+          <span class="intro-label">Intro audio</span>
+          <label class="intro-file-label">
+            <input type="file" id="intro-input" accept="audio/*" hidden />
+            Choose file…
+          </label>
+          <span id="intro-filename">none</span>
+          <button class="intro-clear" id="intro-clear" style="display:none;" title="Remove intro">✕</button>
+        </div>
+
+        <div class="trim-field" style="margin-bottom:0.75rem;">
+          <label>Export filename</label>
+          <div style="display:flex;align-items:center;gap:0.4rem;">
+            <input type="text" class="trim-input" id="export-filename" placeholder="episode-title" style="width:220px;" />
+            <span style="font-size:0.82rem;color:var(--text-dim);">.mp3</span>
+          </div>
+        </div>
+
+        <div class="export-actions">
+          <button class="btn btn-primary" id="export-btn">Export Episode</button>
+          <span class="export-status" id="export-status"></span>
+          <a class="export-download" id="export-download" href="#" download style="display:none;">↓ Download</a>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Past exports card -->
+    <div class="card" id="past-exports-card" style="display:none;">
+      <h2>Previous Exports</h2>
+      <div class="export-list" id="past-exports-list"></div>
+    </div>
+
+    </div><!-- /editor-sections -->
+
+  </div>
+</div>
+
+<script type="module">
+import WaveSurfer from 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.esm.js';
+import RegionsPlugin from 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/plugins/regions.esm.js';
+
+// ── State ──
+let token = null;
+let role = null;
+let sessionId = null;
+let sessionData = null;
+let wavesurfers = [];
+let isPlaying = false;
+let activeRegionsPlugin = null;
+let previewMode = false;
+let previewAudioEl = null;
+let previewBlobUrl = null;
+let previewCacheKey = null;
+
+const editState = {
+  tracks: [],
+  trim: { startSec: 0, endSec: null },
+  silenceRemoval: { enabled: false, thresholdDb: -45, minDurationSec: 1.0 },
+  autoLevel: { enabled: false },
+  introFilename: null,
+};
+
+function authHeaders() {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function fmtTime(sec) {
+  const s = Math.floor(sec || 0);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// ── Auth ──
+async function attemptUnlock() {
+  const pw = document.getElementById('lock-password').value;
+  const errEl = document.getElementById('lock-error');
+  errEl.style.display = 'none';
+  if (!pw) return;
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+    });
+    const data = await res.json();
+    if (!data.role) {
+      errEl.textContent = 'Invalid password';
+      errEl.style.display = '';
+      return;
+    }
+    token = data.token;
+    role = data.role;
+    localStorage.setItem('podcast-studio-token', token);
+    localStorage.setItem('podcast-studio-role', role);
+    document.getElementById('lock-wrap').style.display = 'none';
+    document.getElementById('editor-wrap').style.display = '';
+    PSNavHeader.render(document.getElementById('ps-nav-header'), { current: 'editor', role });
+    if (sessionId) {
+      await loadSession();
+    } else {
+      await loadSessionPicker();
+    }
+  } catch {
+    errEl.textContent = 'Could not reach server';
+    errEl.style.display = '';
+  }
+}
+
+// ── Session picker ──
+async function loadSessionPicker() {
+  document.getElementById('picker-card').style.display = '';
+  document.getElementById('editor-sections').style.display = 'none';
+  document.getElementById('all-sessions-link').style.display = 'none';
+  document.getElementById('session-label').style.display = 'none';
+
+  const list = document.getElementById('session-list');
+  list.innerHTML = '<div class="picker-empty">Loading sessions…</div>';
+
+  try {
+    const res = await fetch('/api/recordings', { headers: authHeaders() });
+    if (res.status === 401) {
+      token = null;
+      localStorage.removeItem('podcast-studio-token');
+      document.getElementById('editor-wrap').style.display = 'none';
+      document.getElementById('lock-wrap').style.display = '';
+      return;
+    }
+    const data = await res.json();
+    const sessions = (data.sessions || []).filter((s) => s.files && s.files.length > 0);
+
+    if (sessions.length === 0) {
+      list.innerHTML = '<div class="picker-empty">No recording sessions found. Record a session in the Studio first.</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    for (const s of sessions) {
+      const date = s.startedAt
+        ? new Date(s.startedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+        : s.sessionId;
+      const participants = (s.participants || []).map((p) => p.username).filter(Boolean).join(', ') || '—';
+      const trackCount = s.files.filter((f) => !f.filename.startsWith('EDIT-')).length;
+      const exportCount = s.files.filter((f) => f.filename.startsWith('EDIT-')).length;
+      const sizeMB = (s.totalSize / (1024 * 1024)).toFixed(0);
+      const metaParts = [`${trackCount} track${trackCount !== 1 ? 's' : ''}`, `${sizeMB} MB`];
+      if (exportCount > 0) metaParts.push(`${exportCount} export${exportCount !== 1 ? 's' : ''}`);
+
+      const row = document.createElement('div');
+      row.className = 'session-row';
+      row.innerHTML = `
+        <div class="session-row-info">
+          <div class="session-row-date">${date}</div>
+          <div class="session-row-meta">${participants} · ${metaParts.join(' · ')}</div>
+        </div>
+        <span class="session-row-open">Open →</span>
+      `;
+      row.addEventListener('click', () => openSession(s.sessionId));
+      list.appendChild(row);
+    }
+  } catch {
+    list.innerHTML = '<div class="picker-empty">Could not load sessions.</div>';
+  }
+}
+
+function openSession(id) {
+  sessionId = id;
+  history.replaceState(null, '', `/editor.html?session=${encodeURIComponent(id)}`);
+  document.getElementById('picker-card').style.display = 'none';
+  document.getElementById('editor-sections').style.display = '';
+  document.getElementById('all-sessions-link').style.display = '';
+  document.getElementById('session-label').style.display = '';
+
+  // Reset editor state for the new session
+  wavesurfers.forEach((ws) => ws.destroy());
+  wavesurfers = [];
+  isPlaying = false;
+  previewMode = false;
+  activeRegionsPlugin = null;
+  editState.tracks = [];
+  editState.trim = { startSec: 0, endSec: null };
+  editState.silenceRemoval = { enabled: false, thresholdDb: -45, minDurationSec: 1.0 };
+  editState.autoLevel = { enabled: false };
+  editState.introFilename = null;
+  document.getElementById('trim-start').value = '';
+  document.getElementById('trim-end').value = '';
+  document.getElementById('silence-enabled').checked = false;
+  document.getElementById('silence-opts').style.display = 'none';
+  document.getElementById('autolevel-enabled').checked = false;
+  document.getElementById('intro-filename').textContent = 'none';
+  document.getElementById('intro-clear').style.display = 'none';
+  document.getElementById('export-status').textContent = '';
+  document.getElementById('export-download').style.display = 'none';
+  document.getElementById('align-status').textContent = '';
+
+  if (previewAudioEl) { previewAudioEl.pause(); }
+  if (previewBlobUrl) { URL.revokeObjectURL(previewBlobUrl); previewBlobUrl = null; }
+  previewCacheKey = null;
+
+  loadSession();
+}
+
+// ── Session loading ──
+async function loadSession() {
+  try {
+    const res = await fetch(`/api/editor/${sessionId}`, { headers: authHeaders() });
+    if (res.status === 401) {
+      token = null;
+      localStorage.removeItem('podcast-studio-token');
+      document.getElementById('editor-wrap').style.display = 'none';
+      document.getElementById('lock-wrap').style.display = '';
+      return;
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      document.getElementById('tracks-card').innerHTML =
+        `<p style="color:var(--text-dim);padding:1rem;">${data.error || 'Failed to load session'}</p>`;
+      return;
+    }
+    sessionData = await res.json();
+  } catch {
+    document.getElementById('tracks-card').innerHTML =
+      '<p style="color:var(--text-dim);padding:1rem;">Could not reach server</p>';
+    return;
+  }
+
+  document.getElementById('session-label').textContent = `Session: ${sessionData.sessionId}`;
+  document.getElementById('session-label').style.display = '';
+  document.getElementById('editor-sections').style.display = '';
+  document.getElementById('all-sessions-link').style.display = '';
+
+  if (!sessionData.ffmpegAvailable) {
+    document.getElementById('ffmpeg-notice').style.display = '';
+    document.getElementById('align-btn').disabled = true;
+    document.getElementById('export-btn').disabled = true;
+  }
+
+  // Build editState.tracks from session data (excluding MIX)
+  editState.tracks = sessionData.tracks
+    .filter((t) => !t.isMix)
+    .map((t) => ({
+      filename: t.filename,
+      offsetMs: 0,
+      include: true,
+      downloadUrl: t.downloadUrl,
+      size: t.size,
+    }));
+
+  // Include MIX tracks separately (view-only, pre-mixed by host)
+  const mixTracks = sessionData.tracks.filter((t) => t.isMix);
+  if (mixTracks.length > 0 && editState.tracks.length === 0) {
+    // Only MIX available — add it for playback reference
+    editState.tracks = mixTracks.map((t) => ({
+      filename: t.filename,
+      offsetMs: 0,
+      include: true,
+      downloadUrl: t.downloadUrl,
+      size: t.size,
+    }));
+  }
+
+  // Pre-fill intro if one was previously uploaded
+  if (sessionData.introFilename) {
+    editState.introFilename = sessionData.introFilename;
+    document.getElementById('intro-filename').textContent = sessionData.introFilename;
+    document.getElementById('intro-clear').style.display = '';
+  }
+
+  renderTrackRows();
+  renderWaveforms();
+  renderPastExports();
+}
+
+// ── Track rows (controls above waveform) ──
+function renderTrackRows() {
+  const container = document.getElementById('track-rows');
+  container.innerHTML = '';
+
+  if (editState.tracks.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-dim);font-size:0.85rem;padding:0.5rem 0;">No individual tracks found in this session.</p>';
+    return;
+  }
+
+  editState.tracks.forEach((t, i) => {
+    const label = t.filename.replace(/\.webm$/, '').replace(/-[a-f0-9]{8}$/, '');
+    const sizeMB = (t.size / (1024 * 1024)).toFixed(1);
+
+    const row = document.createElement('div');
+    row.className = 'track-row';
+    row.innerHTML = `
+      <div class="track-left">
+        <input type="checkbox" ${t.include ? 'checked' : ''} data-idx="${i}" class="track-include" title="Include in export" />
+        <div>
+          <div class="track-label">${label}</div>
+          <div class="track-sub">${sizeMB} MB</div>
+        </div>
+      </div>
+      <div></div>
+      <div class="track-offset">
+        offset
+        <input type="number" class="offset-input" data-idx="${i}" value="${t.offsetMs}" step="10" title="Delay this track by N milliseconds" />
+        ms
+      </div>
+    `;
+    container.appendChild(row);
+
+    row.querySelector('.track-include').addEventListener('change', (e) => {
+      editState.tracks[i].include = e.target.checked;
+    });
+
+    row.querySelector('.offset-input').addEventListener('change', (e) => {
+      editState.tracks[i].offsetMs = Number(e.target.value) || 0;
+      // Re-render waveforms to reflect new offset
+      renderWaveforms();
+    });
+  });
+}
+
+// ── Region/trim sync ──
+function syncRegionToTrim() {
+  if (!activeRegionsPlugin) return;
+  activeRegionsPlugin.getRegions().forEach((r) => r.remove());
+  const dur = wavesurfers[0]?.getDuration() || 0;
+  if (!dur) return;
+  const start = editState.trim.startSec || 0;
+  const end = editState.trim.endSec ?? dur;
+  if (start >= end) return;
+  const region = activeRegionsPlugin.addRegion({
+    start,
+    end,
+    color: 'rgba(239, 74, 82, 0.12)',
+    drag: true,
+    resize: true,
+  });
+  region.on('update-end', () => {
+    editState.trim.startSec = region.start;
+    editState.trim.endSec = region.end;
+    document.getElementById('trim-start').value = region.start.toFixed(2);
+    document.getElementById('trim-end').value = region.end.toFixed(2);
+  });
+}
+
+// ── Waveform rendering ──
+async function renderWaveforms() {
+  const container = document.getElementById('multitrack-container');
+  const loadingEl = document.getElementById('wf-loading');
+  loadingEl.style.display = '';
+  loadingEl.textContent = 'Loading waveforms…';
+
+  // Destroy existing instances
+  wavesurfers.forEach((ws) => ws.destroy());
+  wavesurfers = [];
+  activeRegionsPlugin = null;
+  previewMode = false;
+  // Clear previous track divs (keep the loading indicator)
+  [...container.querySelectorAll('.wf-track-wrap')].forEach((el) => el.remove());
+
+  if (editState.tracks.length === 0) {
+    loadingEl.textContent = 'No tracks to display';
+    return;
+  }
+
+  let readyCount = 0;
+  const total = editState.tracks.length;
+
+  editState.tracks.forEach((t, i) => {
+    const label = t.filename.replace(/\.webm$/, '').replace(/-[a-f0-9]{8}$/, '');
+    const wrap = document.createElement('div');
+    wrap.className = 'wf-track-wrap';
+    wrap.style.cssText = 'margin-bottom:2px;';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'font-size:0.72rem;color:var(--text-dim);padding:3px 6px 1px;';
+    header.textContent = label;
+    wrap.appendChild(header);
+
+    const wfDiv = document.createElement('div');
+    wrap.appendChild(wfDiv);
+    container.appendChild(wrap);
+
+    const ws = WaveSurfer.create({
+      container: wfDiv,
+      url: t.downloadUrl,
+      waveColor: 'rgba(139, 135, 175, 0.7)',
+      progressColor: 'rgba(239, 74, 82, 0.75)',
+      cursorColor: 'rgba(255,255,255,0.6)',
+      cursorWidth: 1,
+      height: 60,
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 1,
+      interact: true,
+    });
+
+    if (i === 0) {
+      const regPlugin = ws.registerPlugin(RegionsPlugin.create());
+      activeRegionsPlugin = regPlugin;
+      regPlugin.enableDragSelection({ color: 'rgba(239, 74, 82, 0.12)' });
+      regPlugin.on('region-created', (region) => {
+        regPlugin.getRegions().forEach((r) => { if (r !== region) r.remove(); });
+        editState.trim.startSec = region.start;
+        editState.trim.endSec = region.end;
+        document.getElementById('trim-start').value = region.start.toFixed(2);
+        document.getElementById('trim-end').value = region.end.toFixed(2);
+        region.on('update-end', () => {
+          editState.trim.startSec = region.start;
+          editState.trim.endSec = region.end;
+          document.getElementById('trim-start').value = region.start.toFixed(2);
+          document.getElementById('trim-end').value = region.end.toFixed(2);
+        });
+      });
+    }
+
+    ws.on('ready', () => {
+      readyCount++;
+      if (readyCount === total) {
+        loadingEl.style.display = 'none';
+      }
+      if (i === 0) {
+        const dur = ws.getDuration() || 0;
+        document.getElementById('time-display').textContent = `0:00 / ${fmtTime(dur)}`;
+        if (editState.trim.startSec > 0 || editState.trim.endSec !== null) {
+          syncRegionToTrim();
+        }
+      }
+    });
+
+    ws.on('timeupdate', (time) => {
+      if (i === 0) {
+        const dur = ws.getDuration() || 0;
+        document.getElementById('time-display').textContent = `${fmtTime(time)} / ${fmtTime(dur)}`;
+        if (previewMode && editState.trim.endSec !== null && time >= editState.trim.endSec) {
+          previewMode = false;
+          wavesurfers.forEach((w) => w.pause());
+          isPlaying = false;
+          document.getElementById('play-btn').textContent = '▶ Play';
+        }
+      }
+    });
+
+    ws.on('finish', () => {
+      isPlaying = false;
+      previewMode = false;
+      document.getElementById('play-btn').textContent = '▶ Play';
+    });
+
+    ws.on('error', (err) => {
+      console.warn('WaveSurfer error for track', t.filename, err);
+      readyCount++;
+      if (readyCount === total) loadingEl.style.display = 'none';
+    });
+
+    wavesurfers.push(ws);
+  });
+}
+
+// ── Play/pause ──
+document.getElementById('play-btn').addEventListener('click', () => {
+  if (wavesurfers.length === 0) return;
+  if (isPlaying) {
+    wavesurfers.forEach((ws) => ws.pause());
+    isPlaying = false;
+    document.getElementById('play-btn').textContent = '▶ Play';
+  } else {
+    // Apply offset: the track with the largest offset plays from the start;
+    // tracks with smaller offsets seek forward by the difference so they
+    // appear synchronized in playback.
+    const maxOffset = Math.max(...editState.tracks.map((t) => t.offsetMs || 0));
+    editState.tracks.forEach((t, i) => {
+      const leadSec = (maxOffset - (t.offsetMs || 0)) / 1000;
+      if (leadSec > 0) {
+        wavesurfers[i].setTime(leadSec);
+      }
+      wavesurfers[i].play();
+    });
+    isPlaying = true;
+    document.getElementById('play-btn').textContent = '⏸ Pause';
+  }
+});
+
+// ── Auto-align ──
+document.getElementById('align-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('align-btn');
+  const statusEl = document.getElementById('align-status');
+  btn.disabled = true;
+  statusEl.textContent = 'Detecting sync tones…';
+  statusEl.className = 'align-status';
+
+  try {
+    const res = await fetch(`/api/editor/${sessionId}/detect-sync`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      statusEl.textContent = data.error || 'Detection failed';
+      statusEl.className = 'align-status err';
+      return;
+    }
+
+    // Apply detected offsets to editState
+    let anySet = false;
+    editState.tracks.forEach((t) => {
+      if (data.offsets[t.filename] !== undefined) {
+        t.offsetMs = data.offsets[t.filename];
+        anySet = true;
+      }
+    });
+
+    if (!anySet) {
+      statusEl.textContent = 'No sync tones detected';
+      statusEl.className = 'align-status err';
+      return;
+    }
+
+    // Pre-fill trim start to just after the sync tone (refTime + 0.8s tone duration)
+    if (data.refTimeSec > 0) {
+      const suggestedStart = Math.round((data.refTimeSec + 0.8) * 10) / 10;
+      document.getElementById('trim-start').value = suggestedStart;
+      editState.trim.startSec = suggestedStart;
+    }
+
+    // Update offset inputs in the DOM
+    document.querySelectorAll('.offset-input').forEach((input) => {
+      const idx = Number(input.dataset.idx);
+      if (editState.tracks[idx]) {
+        input.value = editState.tracks[idx].offsetMs;
+      }
+    });
+
+    // Re-render waveforms with new offsets
+    await renderWaveforms();
+
+    statusEl.textContent = `Aligned ${Object.keys(data.offsets).length} tracks`;
+    statusEl.className = 'align-status ok';
+  } catch {
+    statusEl.textContent = 'Server error during detection';
+    statusEl.className = 'align-status err';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ── Trim inputs ──
+document.getElementById('trim-start').addEventListener('change', (e) => {
+  editState.trim.startSec = parseFloat(e.target.value) || 0;
+  syncRegionToTrim();
+});
+document.getElementById('trim-end').addEventListener('change', (e) => {
+  editState.trim.endSec = e.target.value ? parseFloat(e.target.value) : null;
+  syncRegionToTrim();
+});
+
+// ── Set Start / End Here buttons ──
+document.getElementById('set-start-btn').addEventListener('click', () => {
+  if (!wavesurfers.length) return;
+  const time = wavesurfers[0].getCurrentTime();
+  editState.trim.startSec = time;
+  document.getElementById('trim-start').value = time.toFixed(2);
+  syncRegionToTrim();
+});
+document.getElementById('set-end-btn').addEventListener('click', () => {
+  if (!wavesurfers.length) return;
+  const time = wavesurfers[0].getCurrentTime();
+  editState.trim.endSec = time;
+  document.getElementById('trim-end').value = time.toFixed(2);
+  syncRegionToTrim();
+});
+
+// ── Processed preview (renders trim + Auto-Level + silence removal via FFmpeg) ──
+function computePreviewCacheKey() {
+  return JSON.stringify({
+    tracks: editState.tracks.map((t) => ({ f: t.filename, o: t.offsetMs, i: t.include })),
+    trim: editState.trim,
+    silenceRemoval: editState.silenceRemoval,
+    autoLevel: editState.autoLevel,
+  });
+}
+
+async function getProcessedPreviewUrl() {
+  const key = computePreviewCacheKey();
+  if (previewBlobUrl && previewCacheKey === key) return previewBlobUrl;
+
+  const payload = {
+    tracks: editState.tracks.map((t) => ({ filename: t.filename, offsetMs: t.offsetMs, include: t.include })),
+    trim: { startSec: editState.trim.startSec || 0, endSec: editState.trim.endSec || null },
+    silenceRemoval: { ...editState.silenceRemoval },
+    autoLevel: { ...editState.autoLevel },
+  };
+
+  const res = await fetch(`/api/editor/${sessionId}/preview`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    let msg = 'Preview failed';
+    try { const data = await res.json(); msg = data.error || msg; } catch {}
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+  previewBlobUrl = URL.createObjectURL(blob);
+  previewCacheKey = key;
+  return previewBlobUrl;
+}
+
+// ── Preview Trim ──
+document.getElementById('preview-trim-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('preview-trim-btn');
+  const processingActive = editState.autoLevel.enabled || editState.silenceRemoval.enabled;
+
+  // Toggle off a processed preview that's currently playing
+  if (previewAudioEl && !previewAudioEl.paused) {
+    previewAudioEl.pause();
+    return;
+  }
+
+  if (!processingActive) {
+    if (!wavesurfers.length) return;
+    if (isPlaying) {
+      wavesurfers.forEach((w) => w.pause());
+      isPlaying = false;
+      previewMode = false;
+      document.getElementById('play-btn').textContent = '▶ Play';
+      return;
+    }
+    const startSec = editState.trim.startSec || 0;
+    previewMode = editState.trim.endSec !== null;
+    const maxOffset = Math.max(...editState.tracks.map((t) => t.offsetMs || 0));
+    editState.tracks.forEach((t, idx) => {
+      const leadSec = (maxOffset - (t.offsetMs || 0)) / 1000;
+      wavesurfers[idx].setTime(Math.max(0, startSec + leadSec));
+      wavesurfers[idx].play();
+    });
+    isPlaying = true;
+    document.getElementById('play-btn').textContent = '⏸ Pause';
+    return;
+  }
+
+  // Processed preview: stop raw waveform playback first, then render via FFmpeg
+  wavesurfers.forEach((w) => w.pause());
+  isPlaying = false;
+  document.getElementById('play-btn').textContent = '▶ Play';
+
+  btn.disabled = true;
+  btn.textContent = 'Rendering preview…';
+  try {
+    const url = await getProcessedPreviewUrl();
+    if (!previewAudioEl) {
+      previewAudioEl = new Audio();
+      previewAudioEl.addEventListener('play', () => { btn.textContent = '⏸ Preview'; });
+      previewAudioEl.addEventListener('pause', () => { btn.textContent = '▶ Preview'; });
+      previewAudioEl.addEventListener('ended', () => { btn.textContent = '▶ Preview'; });
+    }
+    previewAudioEl.src = url;
+    await previewAudioEl.play();
+  } catch (err) {
+    btn.textContent = '▶ Preview';
+    alert(err.message || 'Preview failed');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ── Intro upload ──
+document.getElementById('intro-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById('intro-filename');
+  statusEl.textContent = 'Uploading…';
+
+  try {
+    const res = await fetch(`/api/editor/${sessionId}/upload-intro`, {
+      method: 'POST',
+      headers: {
+        ...authHeaders(),
+        'Content-Type': file.type || 'audio/mpeg',
+      },
+      body: file,
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      editState.introFilename = data.filename;
+      statusEl.textContent = file.name;
+      document.getElementById('intro-clear').style.display = '';
+    } else {
+      statusEl.textContent = data.error || 'Upload failed';
+      editState.introFilename = null;
+    }
+  } catch {
+    statusEl.textContent = 'Upload failed';
+    editState.introFilename = null;
+  }
+  // Reset file input so same file can be re-selected
+  e.target.value = '';
+});
+
+document.getElementById('intro-clear').addEventListener('click', () => {
+  editState.introFilename = null;
+  document.getElementById('intro-filename').textContent = 'none';
+  document.getElementById('intro-clear').style.display = 'none';
+});
+
+// ── Auto-Level (Levelator-style) ──
+document.getElementById('autolevel-enabled').addEventListener('change', (e) => {
+  editState.autoLevel.enabled = e.target.checked;
+});
+
+// ── Silence removal ──
+document.getElementById('silence-enabled').addEventListener('change', (e) => {
+  editState.silenceRemoval.enabled = e.target.checked;
+  document.getElementById('silence-opts').style.display = e.target.checked ? '' : 'none';
+});
+document.getElementById('silence-threshold').addEventListener('change', (e) => {
+  editState.silenceRemoval.thresholdDb = Number(e.target.value) || -45;
+});
+document.getElementById('silence-min-dur').addEventListener('change', (e) => {
+  editState.silenceRemoval.minDurationSec = parseFloat(e.target.value) || 1.0;
+});
+
+// ── Export ──
+document.getElementById('export-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('export-btn');
+  const statusEl = document.getElementById('export-status');
+  const dlEl = document.getElementById('export-download');
+
+  dlEl.style.display = 'none';
+  btn.disabled = true;
+  statusEl.className = 'export-status processing';
+  statusEl.textContent = 'Processing with FFmpeg…';
+
+  const exportFilenameInput = document.getElementById('export-filename').value.trim();
+  const payload = {
+    tracks: editState.tracks.map((t) => ({
+      filename: t.filename,
+      offsetMs: t.offsetMs,
+      include: t.include,
+    })),
+    trim: {
+      startSec: editState.trim.startSec || 0,
+      endSec: editState.trim.endSec || null,
+    },
+    silenceRemoval: { ...editState.silenceRemoval },
+    autoLevel: { ...editState.autoLevel },
+    introFilename: editState.introFilename,
+    outputFilename: exportFilenameInput || null,
+  };
+
+  try {
+    const res = await fetch(`/api/editor/${sessionId}/export`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      statusEl.className = 'export-status done';
+      statusEl.textContent = 'Export complete!';
+      dlEl.href = data.downloadUrl;
+      dlEl.download = data.filename;
+      dlEl.textContent = `↓ ${data.filename}`;
+      dlEl.style.display = '';
+      // Refresh past exports list
+      await loadSession();
+    } else {
+      statusEl.className = 'export-status error';
+      statusEl.textContent = data.error || 'Export failed';
+    }
+  } catch {
+    statusEl.className = 'export-status error';
+    statusEl.textContent = 'Server error during export';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ── Past exports ──
+function renderPastExports() {
+  if (!sessionData.exports || sessionData.exports.length === 0) {
+    document.getElementById('past-exports-card').style.display = 'none';
+    return;
+  }
+  document.getElementById('past-exports-card').style.display = '';
+  const list = document.getElementById('past-exports-list');
+  list.innerHTML = '';
+  for (const exp of sessionData.exports) {
+    const sizeMB = (exp.size / (1024 * 1024)).toFixed(1);
+    const item = document.createElement('div');
+    item.className = 'export-item';
+    item.innerHTML = `
+      <span class="name">${exp.filename}</span>
+      <span style="color:var(--text-dim);font-size:0.78rem;">${sizeMB} MB</span>
+      <a href="${exp.downloadUrl}" download="${exp.filename}">Download</a>
+    `;
+    list.appendChild(item);
+  }
+}
+
+// ── All Sessions link ──
+document.getElementById('all-sessions-link').addEventListener('click', (e) => {
+  e.preventDefault();
+  sessionId = null;
+  history.replaceState(null, '', '/editor.html');
+  wavesurfers.forEach((ws) => ws.destroy());
+  wavesurfers = [];
+  isPlaying = false;
+  loadSessionPicker();
+});
+
+// ── Boot ──
+function init() {
+  const params = new URLSearchParams(location.search);
+  sessionId = params.get('session');
+
+  document.getElementById('lock-submit').addEventListener('click', attemptUnlock);
+  document.getElementById('lock-password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') attemptUnlock();
+  });
+
+  token = localStorage.getItem('podcast-studio-token');
+  role = localStorage.getItem('podcast-studio-role');
+  if (!token) {
+    document.getElementById('lock-wrap').style.display = '';
+    setTimeout(() => document.getElementById('lock-password').focus(), 50);
+    return;
+  }
+
+  document.getElementById('editor-wrap').style.display = '';
+  PSNavHeader.render(document.getElementById('ps-nav-header'), { current: 'editor', role });
+
+  if (sessionId) {
+    document.getElementById('editor-sections').style.display = '';
+    document.getElementById('all-sessions-link').style.display = '';
+    document.getElementById('session-label').style.display = '';
+    loadSession();
+  } else {
+    loadSessionPicker();
+  }
+}
+
+init();
+</script>
+</body>
+</html>

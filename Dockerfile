@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY package.json ./
 RUN npm install --production && npm cache clean --force
+RUN apk add --no-cache ffmpeg
 
 COPY server.js ./
 COPY lib/ ./lib/

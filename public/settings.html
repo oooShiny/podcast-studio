@@ -8,30 +8,10 @@
 <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
 <link rel="shortcut icon" href="/favicon/favicon.ico" />
 <link rel="stylesheet" href="/nav-header.css" />
+<link rel="stylesheet" href="/styles.css" />
 <script src="/nav-header.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
-
-  :root {
-    --bg: #024;
-    --surface: #001327;
-    --surface-2: #024;
-    --border: #2a2a38;
-    --text: #e8e6f0;
-    --text-dim: #8a879a;
-    --menu-text: #8a879a;
-    --accent: #ef4a52;
-    --accent-glow: rgba(239, 74, 82, 0.25);
-    --radius: 12px;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
   body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -44,19 +24,9 @@
     margin-bottom: 1.5rem;
   }
 
-  .back-link {
-    color: var(--text-dim);
-    font-size: 0.85rem;
-    text-decoration: none;
-    opacity: 0.8;
-  }
-  .back-link:hover { opacity: 1; }
-
   .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
     padding: 2rem;
+    margin-bottom: 0;
     max-width: 520px;
     width: 100%;
   }
@@ -64,16 +34,6 @@
   h1 { font-size: 1.5rem; margin-bottom: 0.3rem; }
   .card p.sub { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.5rem; }
 
-  .field { margin-bottom: 1.2rem; text-align: left; }
-  .field label {
-    display: block;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 0.45rem;
-  }
   .field input[type="text"], .field input[type="password"] {
     width: 100%;
     padding: 0.75rem 1rem;
@@ -596,7 +556,10 @@ async function loadRecordingsManagement() {
           <div style="font-size:0.85rem; font-weight:600;">${escHtml(date)}</div>
           <div style="font-size:0.72rem; color:var(--text-dim);">${escHtml(participants)} · ${session.files.length} files · ${totalMB} MB</div>
         </div>
-        <button class="btn-small session-delete-btn" style="font-size:0.72rem; color:var(--accent);">Delete All</button>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <a href="/editor.html?session=${encodeURIComponent(session.sessionId)}" style="font-size:0.72rem;font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap;">Open in Editor →</a>
+          <button class="btn-small session-delete-btn" style="font-size:0.72rem; color:var(--accent);">Delete All</button>
+        </div>
       `;
 
       const filesDiv = document.createElement("div");
@@ -680,7 +643,7 @@ document.getElementById("lock-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") attemptUnlock();
 });
 
-PSNavHeader.render(document.getElementById("ps-nav-header"), { current: "settings" });
+PSNavHeader.render(document.getElementById("ps-nav-header"), { current: "settings", role: role || "host" });
 loadSettings();
 document.getElementById("lock-password").focus();
 </script>

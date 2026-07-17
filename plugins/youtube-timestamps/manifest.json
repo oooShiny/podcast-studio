@@ -1,0 +1,5 @@
+{
+  "name": "youtube-timestamps",
+  "version": "1.0.0",
+  "description": "YouTube IFrame API integration — insert timestamps from embedded YouTube videos in prep notes"
+}

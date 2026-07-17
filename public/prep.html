@@ -1146,6 +1146,7 @@
       <select id="episode-select" class="note-input" style="flex:1;padding:.35rem .6rem">
         <option value="">Select an episode…</option>
       </select>
+      <button id="set-current-btn" class="btn ghost sm" style="white-space:nowrap" disabled title="Load this episode by default on future visits">☆ Set as Current</button>
       <button id="new-episode-btn" class="btn primary sm" style="white-space:nowrap">+ New Episode</button>
     </div>
 
@@ -1386,6 +1387,7 @@
 
     // ── Elements ──────────────────────────────────────────────────────
     const episodeSelect     = document.getElementById('episode-select');
+    const setCurrentBtn     = document.getElementById('set-current-btn');
     const newEpisodeBtn     = document.getElementById('new-episode-btn');
     const videoPlayer       = document.getElementById('video-player');
     const insertTsBtn       = document.getElementById('insert-ts-btn');
@@ -1420,8 +1422,52 @@
     let sources           = [];
     let activeSourceId    = null;
     let prepWs            = null;
+    let prepSourceViewers = [];   // registered by plugins via PodcastStudioPrep
+    let activePrepViewer  = null; // { getTime, cleanup } from the active plugin viewer
     let broadcastTimers   = {};
     let applyQueue        = {};
+
+    // ── Pinned episode (persisted across visits) ──────────────────────
+    const PINNED_KEY = 'podcast-studio-pinned-episode';
+
+    function getPinned() {
+      try { return JSON.parse(localStorage.getItem(PINNED_KEY)) || null; } catch { return null; }
+    }
+
+    function setPinned(slug, title) {
+      localStorage.setItem(PINNED_KEY, JSON.stringify({ slug, title }));
+    }
+
+    function clearPinned() {
+      localStorage.removeItem(PINNED_KEY);
+    }
+
+    function updateSetCurrentBtn() {
+      if (!currentGameSlug) {
+        setCurrentBtn.disabled = true;
+        setCurrentBtn.textContent = '☆ Set as Current';
+        setCurrentBtn.classList.remove('green-btn');
+        setCurrentBtn.classList.add('ghost');
+        return;
+      }
+      const pinned = getPinned();
+      const isPinned = pinned?.slug === currentGameSlug;
+      setCurrentBtn.disabled = false;
+      setCurrentBtn.textContent = isPinned ? '★ Current Episode' : '☆ Set as Current';
+      setCurrentBtn.classList.toggle('green-btn', isPinned);
+      setCurrentBtn.classList.toggle('ghost', !isPinned);
+    }
+
+    setCurrentBtn.addEventListener('click', () => {
+      if (!currentGameSlug) return;
+      const pinned = getPinned();
+      if (pinned?.slug === currentGameSlug) {
+        clearPinned();
+      } else {
+        setPinned(currentGameSlug, currentGameTitle);
+      }
+      updateSetCurrentBtn();
+    });
 
     // ── Note fields ───────────────────────────────────────────────────
     const NOTE_FIELDS = ['n-shared', 'n-mine'];
@@ -1512,10 +1558,7 @@
         '<span style="font-size:.65rem;color:var(--ink-4);margin-right:4px">Jump:</span>' +
         times.map(t => `<span class="ts-chip" data-ts="${t}">${t}</span>`).join('');
       row.querySelectorAll('.ts-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-          videoPlayer.currentTime = parseTime(chip.dataset.ts);
-          videoPlayer.play();
-        });
+        chip.addEventListener('click', () => seekVideo(parseTime(chip.dataset.ts)));
       });
     }
 
@@ -1535,8 +1578,25 @@
     }
 
     function insertTimestamp() {
-      if (!videoPlayer.src) return;
-      insertAtCursor(`[${formatTime(videoPlayer.currentTime)}]`);
+      let time;
+      if (videoPlayer.src) {
+        time = videoPlayer.currentTime;
+      } else if (activePrepViewer) {
+        time = activePrepViewer.getTime();
+      } else {
+        return;
+      }
+      insertAtCursor(`[${formatTime(time)}]`);
+    }
+
+    // Seek whichever player is currently active (native video or plugin viewer)
+    function seekVideo(secs) {
+      if (videoPlayer.src) {
+        videoPlayer.currentTime = secs;
+        videoPlayer.play();
+      } else if (activePrepViewer?.seekTo) {
+        activePrepViewer.seekTo(secs);
+      }
     }
 
     // ── Notes state ───────────────────────────────────────────────────
@@ -1818,7 +1878,7 @@
 
     // ── Timestamp click-to-seek (click [MM:SS] text inside editors) ───
     function handleEditorTimestampClick(e) {
-      if (!videoPlayer.src) return;
+      if (!videoPlayer.src && !activePrepViewer) return;
       if (!e.target.closest('.wysi-editor')) return;
       let range;
       if (document.caretRangeFromPoint) {
@@ -1834,9 +1894,8 @@
       let m;
       while ((m = re.exec(text)) !== null) {
         if (offset > m.index && offset <= m.index + m[0].length) {
-          videoPlayer.currentTime = parseTime(m[1]);
-          videoPlayer.play();
-          videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          seekVideo(parseTime(m[1]));
+          if (videoPlayer.src) videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           return;
         }
       }
@@ -1857,7 +1916,7 @@
         const videoTime = Math.floor(videoPlayer.currentTime);
         const res = await fetch('/api/screenshots', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ game: currentGameSlug, dataUrl, videoTime }),
         });
         if (!res.ok) throw new Error('Upload failed');
@@ -1906,7 +1965,7 @@
         btn.addEventListener('click', async e => {
           e.stopPropagation();
           const fn = btn.dataset.filename;
-          await fetch(`/api/screenshots/${encodeURIComponent(currentGameSlug)}/${fn}`, { method: 'DELETE' });
+          await fetch(`/api/screenshots/${encodeURIComponent(currentGameSlug)}/${fn}`, { method: 'DELETE', headers: authHeaders() });
           loadScreenshots();
         });
       });
@@ -1989,7 +2048,7 @@
     }
 
     function sourceIcon(src) {
-      if (src.type === 'url') return src.embedUrl ? '▶' : (src.embeddable === false ? '↗' : '🔗');
+      if (src.type === 'url') return (src.embedUrl || src.mime?.startsWith('video/')) ? '▶' : (src.embeddable === false ? '↗' : '🔗');
       if (src.mime?.startsWith('video/')) return '▶';
       if (src.mime?.startsWith('audio/')) return '♪';
       if (src.mime?.startsWith('image/')) return '🖼';
@@ -2277,7 +2336,9 @@
         focalReading.classList.remove('active');
         focalReading.innerHTML = '';
         focalVideo.style.display = '';
-        videoPlayer.src = `/api/prep-sources/file/${encodeURIComponent(currentGameSlug)}/${encodeURIComponent(src.filename)}`;
+        videoPlayer.src = src.type === 'url'
+          ? src.url
+          : `/api/prep-sources/file/${encodeURIComponent(currentGameSlug)}/${encodeURIComponent(src.filename)}`;
         return;
       }
 
@@ -2286,6 +2347,14 @@
 
       if (src.type === 'url') {
         if (src.embedUrl) {
+          // Let a plugin handle the embed if one is registered for it
+          const viewer = prepSourceViewers.find(v => v.match(src));
+          if (viewer) {
+            if (activePrepViewer) { try { activePrepViewer.cleanup?.(); } catch {} activePrepViewer = null; }
+            focalReading.innerHTML = '<div id="prep-viewer-mount" style="display:flex;flex-direction:column;flex:1;gap:8px;min-height:0"></div>';
+            const mount = focalReading.querySelector('#prep-viewer-mount');
+            activePrepViewer = viewer.mount(mount, src) || null;
+          } else {
           focalReading.innerHTML = `
             <div class="reading-url-card">
               <div class="reading-url-domain">${escHtml(src.domain || '')}</div>
@@ -2295,6 +2364,7 @@
             </div>
             <iframe src="${escHtml(src.embedUrl)}" style="flex:1;min-height:460px;border:none;border-radius:8px;background:#000"
               allow="autoplay; fullscreen; picture-in-picture; encrypted-media" loading="lazy"></iframe>`;
+          }
         } else if (src.embeddable === false) {
           focalReading.innerHTML = `
             <div class="reading-url-card">
@@ -2333,6 +2403,7 @@
 
     function resetFocalPane() {
       if (currentViewerCleanup) { currentViewerCleanup(); currentViewerCleanup = null; }
+      if (activePrepViewer) { try { activePrepViewer.cleanup?.(); } catch {} activePrepViewer = null; }
       activeSourceId = null;
       videoPlayer.pause();
       videoPlayer.removeAttribute('src');
@@ -2469,6 +2540,7 @@
       const url = document.getElementById('sm-url-input').value.trim();
       if (!url) return;
       if (!currentGameSlug) { setSmMsg('url', 'Please select an episode first.', 'err'); return; }
+      if (!currentToken) { setSmMsg('url', 'Sign in to add sources.', 'err'); showLoginOverlay(); return; }
       setSmMsg('url', 'Fetching…', '');
       try {
         const res = await fetch('/api/prep-sources/url', {
@@ -2476,6 +2548,7 @@
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ user: currentUser || '', game: currentGameSlug, url }),
         });
+        if (res.status === 401) { setSmMsg('url', 'Session expired — please sign in again.', 'err'); showLoginOverlay(); return; }
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to add URL');
         setSmMsg('url', `✓ "${data.name}" added.`, 'ok');
@@ -2510,12 +2583,26 @@
           o.value = currentGameSlug; o.textContent = currentGameTitle; o.dataset.title = currentGameTitle;
           episodeSelect.appendChild(o);
         }
-        if (currentGameSlug) episodeSelect.value = currentGameSlug;
+        if (currentGameSlug) {
+          episodeSelect.value = currentGameSlug;
+        } else {
+          // Auto-load the pinned episode if one is set and no episode is active yet
+          const pinned = getPinned();
+          if (pinned?.slug) {
+            const opt = Array.from(episodeSelect.options).find(o => o.value === pinned.slug);
+            if (opt) {
+              episodeSelect.value = pinned.slug;
+              await selectEpisode(pinned.slug, opt.dataset.title || opt.textContent || pinned.title);
+            }
+          }
+        }
+        updateSetCurrentBtn();
       } catch (e) { console.error('loadEpisodes:', e); }
     }
 
     async function selectEpisode(slug, title) {
       currentGameId = slug; currentGameSlug = slug; currentGameTitle = title;
+      updateSetCurrentBtn();
       resetFocalPane();
       document.getElementById('focal-title').textContent = title;
       document.getElementById('focal-meta').textContent  = 'Add a source to get started';
@@ -2538,6 +2625,7 @@
       const slug = opt.value;
       if (!slug) {
         currentGameId = null; currentGameTitle = null; currentGameSlug = null;
+        updateSetCurrentBtn();
         resetFocalPane();
         sources = []; renderSourceRail();
         setSaveStatus('No episode selected', 'idle');
@@ -2791,6 +2879,28 @@
       btn.textContent = pinned ? '⊙ Unpin' : '⊙ Pin';
       btn.title = pinned ? 'Unpin video' : 'Pin video to top while scrolling';
     });
+
+    // ── Plugin extension API for prep.html ───────────────────────────
+    window.PodcastStudioPrep = {
+      // Plugins call this to register a viewer for embed URL sources.
+      // match(src) → bool; mount(el, src) → { getTime, cleanup }
+      registerSourceViewer(viewer) { prepSourceViewers.push(viewer); },
+      // Exposed so plugin-rendered buttons can trigger timestamp insertion.
+      insertTimestamp() { insertTimestamp(); },
+    };
+
+    // Load prep.js from enabled plugins (mirrors how tab.js is loaded in index.html)
+    fetch('/api/plugins')
+      .then(r => r.json())
+      .then(plugins => {
+        for (const plugin of plugins) {
+          if (!plugin.hasPrepScript || plugin.enabled === false) continue;
+          const s = document.createElement('script');
+          s.src = `/plugins/${plugin.name}/prep.js`;
+          document.body.appendChild(s);
+        }
+      })
+      .catch(() => {});
 
     // ── Init ──────────────────────────────────────────────────────────
     PSNavHeader.render(document.getElementById('ps-nav-header'), { current: 'prep', role: currentRole });
