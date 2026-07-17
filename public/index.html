@@ -2096,24 +2096,37 @@ function createPeer(peerId, peerUsername, initiator) {
   }
   state.localStream.getVideoTracks().forEach(t => pc.addTrack(t, state.localStream));
 
-  // Handle incoming tracks
+  // Handle incoming tracks. Audio and video are sent under different MediaStream ids
+  // (audio comes from state.peerOutputDest.stream, video from state.localStream), so each
+  // ontrack fires with a stream that only ever contains that one track — never both. Only
+  // the audio-track event's stream is safe to hand to createMediaStreamSource().
   pc.ontrack = (e) => {
     const stream = e.streams[0];
-    peerData.stream = stream;
 
-    // Create audio element for playback (audio track only, so we don't double-play audio
-    // through the video element when video eventually arrives)
-    if (e.track.kind === "audio" && !peerData.audioEl) {
-      const audio = document.createElement("audio");
-      audio.autoplay = true;
-      audio.srcObject = stream;
-      document.body.appendChild(audio);
-      peerData.audioEl = audio;
+    if (e.track.kind === "audio") {
+      peerData.stream = stream;
 
-      // Apply selected audio output
-      const outputId = document.getElementById("speaker-select").value;
-      if (outputId && typeof audio.setSinkId === "function") {
-        audio.setSinkId(outputId).catch(() => {});
+      // Create audio element for playback (audio track only, so we don't double-play audio
+      // through the video element when video eventually arrives)
+      if (!peerData.audioEl) {
+        const audio = document.createElement("audio");
+        audio.autoplay = true;
+        audio.srcObject = stream;
+        document.body.appendChild(audio);
+        peerData.audioEl = audio;
+
+        // Apply selected audio output
+        const outputId = document.getElementById("speaker-select").value;
+        if (outputId && typeof audio.setSinkId === "function") {
+          audio.setSinkId(outputId).catch(() => {});
+        }
+      }
+
+      setupRemoteAudioAnalysis(peerId, stream);
+
+      // If host is already recording, add this peer to the combined mix
+      if (state.isHost && state.mixDest && state.isRecording) {
+        connectPeerToMix(peerData);
       }
     }
 
@@ -2133,12 +2146,6 @@ function createPeer(peerId, peerUsername, initiator) {
 
     // Add/update tile with video
     addParticipantTile(peerId, peerUsername, false, stream);
-    setupRemoteAudioAnalysis(peerId, stream);
-
-    // If host is already recording, add this peer to the combined mix
-    if (state.isHost && state.mixDest && state.isRecording) {
-      connectPeerToMix(peerData);
-    }
   };
 
   // ICE candidates
@@ -2346,12 +2353,22 @@ function updateGridLayout() {
 //  AUDIO ANALYSIS (Level meters & speaking indicator)
 // ═══════════════════════════════════════════════
 function setupAudioAnalysis() {
-  state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  // Reuse the existing AudioContext (created once, on first join). Recreating it on every
+  // mic switch would orphan nodes made against the old context (soundboard output,
+  // recording/mix destinations) and cause "different audio context" connect errors.
+  if (!state.audioContext) {
+    state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // peerOutputDest is what peers receive: mic + soundboard/video mixed in
+    state.peerOutputDest = state.audioContext.createMediaStreamDestination();
+  }
 
-  // peerOutputDest is what peers receive: mic + soundboard/video mixed in
-  state.peerOutputDest = state.audioContext.createMediaStreamDestination();
+  // Disconnect the previous mic source (it still points at a track that may have been
+  // stopped/replaced by a device switch) before wiring up the current one.
+  if (state._micSource) state._micSource.disconnect();
+
   const micSource = state.audioContext.createMediaStreamSource(state.localStream);
   micSource.connect(state.peerOutputDest);
+  state._micSource = micSource;
 
   // Analyser stays on the raw mic so the level meter is unaffected
   state.analyserLocal = state.audioContext.createAnalyser();
@@ -2363,6 +2380,7 @@ function setupAudioAnalysis() {
 
 function setupRemoteAudioAnalysis(peerId, stream) {
   if (!state.audioContext) return;
+  if (!stream || stream.getAudioTracks().length === 0) return;
   const source = state.audioContext.createMediaStreamSource(stream);
   const analyser = state.audioContext.createAnalyser();
   analyser.fftSize = 256;
@@ -2632,6 +2650,7 @@ async function runCountdown() {
 // Connect a peer's remote audio stream into the host's combined mix
 function connectPeerToMix(peer) {
   if (!state.mixDest || !state.audioContext || !peer.stream) return;
+  if (peer.stream.getAudioTracks().length === 0) return;
   if (peer._mixSource) return;
   const source = state.audioContext.createMediaStreamSource(peer.stream);
   source.connect(state.mixDest);
