@@ -1635,6 +1635,11 @@ const state = {
   ws: null,
   myId: null,
   username: "",
+  // The room ID everyone in this browser tab will join. Defaults to a
+  // single shared room ("studio") for a normal one-studio-per-instance
+  // deployment; pass ?room=<id> to run multiple independent sessions
+  // side by side on one instance (e.g. a shared DEMO_MODE deployment).
+  room: new URLSearchParams(location.search).get("room") || "studio",
   role: "",            // "host", "member", "guest"
   token: "",           // session token from /api/auth, sent as Authorization: Bearer <token>
   localStream: null,
@@ -2059,12 +2064,12 @@ document.getElementById("join-btn").addEventListener("click", async () => {
 
   setupAudioAnalysis();
 
-  // Connect WebSocket — everyone joins the same room "studio"
+  // Connect WebSocket — joins state.room (see the ?room= URL param above)
   const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
   state.ws = new WebSocket(`${wsProto}//${location.host}`);
 
   state.ws.onopen = () => {
-    state.ws.send(JSON.stringify({ type: "join", room: "studio", username, token: state.token }));
+    state.ws.send(JSON.stringify({ type: "join", room: state.room, username, token: state.token }));
   };
 
   state.ws.onmessage = (e) => handleSignal(JSON.parse(e.data));
