@@ -19,6 +19,14 @@ plugins-data/
 
 branding/
 
+recordings/
+
+screenshots/
+
+clips/
+
 studio-settings.json
 
 plugins-settings.json
+
+sessions.json

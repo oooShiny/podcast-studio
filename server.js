@@ -14,6 +14,7 @@ const screenshotsModule = require("./lib/screenshots");
 const studioSettingsModule = require("./lib/studio-settings");
 const roomsModule = require("./lib/rooms");
 const editorModule = require("./lib/editor");
+const updatesModule = require("./lib/updates");
 const { loadPlugins } = require("./lib/plugin-loader");
 const { createLimiter } = require("./lib/rate-limit");
 
@@ -64,6 +65,7 @@ const coreModules = [
   studioSettingsModule,
   roomsModule,
   editorModule,
+  updatesModule,
 ];
 
 for (const mod of coreModules) {

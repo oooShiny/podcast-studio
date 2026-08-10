@@ -111,6 +111,53 @@ fly deploy
 
 Push to a Git repo and connect it — both platforms auto-detect Node.js.
 
+### Option D: Docker
+
+A prebuilt image is published to GitHub Container Registry on every push to `main`:
+
+```bash
+docker run -d \
+  --name podcast-studio \
+  -p 3000:3000 \
+  -e HOST_PASSWORD=changeme \
+  -e MEMBER_PASSWORD=changeme \
+  -e GUEST_PASSWORD=changeme \
+  -v podcast-studio-data:/app/recordings \
+  -v podcast-studio-clips:/app/clips \
+  -v podcast-studio-prep-notes:/app/prep-notes \
+  -v podcast-studio-prep-sources:/app/prep-sources \
+  -v podcast-studio-screenshots:/app/screenshots \
+  -v podcast-studio-branding:/app/branding \
+  ghcr.io/oooshiny/podcast-studio:latest
+```
+
+Or build the image yourself from a local clone with `docker build -t podcast-studio .`.
+
+## Updating
+
+How you pick up new commits depends on how you deployed:
+
+- **VPS/PM2 instance you administer**: point a GitHub webhook at `POST /webhook` with
+  `WEBHOOK_SECRET` set (see [Public Demo Deployments](#public-demo-deployments) below) —
+  every push to `main` triggers a `git pull` and restart automatically.
+- **git clone without webhook access** (most self-hosted installs): go to `/settings` →
+  **Updates**, which checks GitHub for newer commits on `main` and (for git-based
+  deployments) offers an **Update now** button that pulls and restarts for you. You can
+  also just run `git pull` and restart the process yourself.
+- **Docker**: pull the latest image and recreate the container —
+  `docker pull ghcr.io/oooshiny/podcast-studio:latest` — or run
+  [Watchtower](https://containrrr.dev/watchtower/) alongside it to automate that:
+  ```bash
+  docker run -d \
+    --name watchtower \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    containrrr/watchtower podcast-studio
+  ```
+
+The `/settings` → Updates panel always shows whether a newer commit exists on `main`,
+regardless of how the instance was deployed — it just can't apply the update itself for
+Docker (the app can't replace its own container from inside itself).
+
 ## Public Demo Deployments
 
 Want prospective users to try Podcast Studio without installing anything? Run a public,

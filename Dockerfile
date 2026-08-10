@@ -1,5 +1,10 @@
 FROM node:20-alpine
 
+ARG GIT_SHA=unknown
+ARG GITHUB_REPO=oooShiny/podcast-studio
+ENV GIT_SHA=$GIT_SHA
+ENV GITHUB_REPO=$GITHUB_REPO
+
 WORKDIR /app
 
 COPY package.json ./
@@ -10,8 +15,6 @@ COPY server.js ./
 COPY lib/ ./lib/
 COPY public/ ./public/
 COPY plugins/ ./plugins/
-COPY prep.html ./
-COPY settings.html ./
 
 # Data directories are declared as volumes so a named volume or bind-mount
 # survives container restarts. The server creates them at startup if absent.

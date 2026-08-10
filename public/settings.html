@@ -135,6 +135,31 @@
 
   .error-text { color: var(--accent); font-size: 0.85rem; margin-bottom: 0.5rem; }
 
+  .update-status-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+  .update-version { font-size: 0.82rem; color: var(--text-dim); }
+  .update-version code { color: var(--text); background: var(--surface-2); border-radius: 4px; padding: 0.05rem 0.35rem; }
+  .update-pill {
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+    white-space: nowrap;
+  }
+  .update-pill.current { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+  .update-pill.available { background: rgba(239, 74, 82, 0.15); color: var(--accent); }
+  .update-pill.unknown { background: var(--surface-2); color: var(--text-dim); }
+  .update-actions { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.8rem; flex-wrap: wrap; }
+  .update-docker-hint {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    margin-top: 0.6rem;
+  }
+  .update-docker-hint code { display: block; margin-top: 0.35rem; color: var(--text); }
+
   #lock-card { text-align: center; }
   #settings-card { display: none; }
 </style>
@@ -239,6 +264,14 @@
   <h1>Server Recordings</h1>
   <p class="sub">All recording sessions stored on the server.</p>
   <div id="recordings-list"></div>
+</div>
+
+<div id="updates-card" class="card" style="margin-top:1.5rem; display:none;">
+  <h1>Updates</h1>
+  <p class="sub">Checks the project's GitHub repo for newer commits on <code>main</code>.</p>
+  <div id="updates-body">
+    <p style="color:var(--text-dim); font-size:0.85rem;">Checking…</p>
+  </div>
 </div>
 
 <script>
@@ -602,6 +635,99 @@ async function loadRecordingsManagement() {
   }
 }
 
+// ═══════════════════════════════════════════════
+//  UPDATES (host only)
+// ═══════════════════════════════════════════════
+function shortSha(sha) {
+  return sha ? sha.slice(0, 7) : "unknown";
+}
+
+function renderUpdatesBody(data) {
+  const body = document.getElementById("updates-body");
+  const deploymentLabel = { git: "git checkout", docker: "Docker", unknown: "unknown" }[data.deploymentType] || "unknown";
+
+  if (data.error) {
+    body.innerHTML = `
+      <div class="update-status-row">
+        <span class="update-version">Running <code>${escHtml(shortSha(data.current))}</code> · ${escHtml(deploymentLabel)}</span>
+        <span class="update-pill unknown">Couldn't check</span>
+      </div>
+      <p style="color:var(--text-dim); font-size:0.8rem; margin-top:0.5rem;">${escHtml(data.error)}</p>
+      <div class="update-actions"><button class="btn-small" id="updates-recheck-btn">Check again</button></div>
+    `;
+    document.getElementById("updates-recheck-btn").addEventListener("click", loadUpdates);
+    return;
+  }
+
+  const pillClass = data.updateAvailable ? "available" : "current";
+  const pillText = data.updateAvailable ? "Update available" : "Up to date";
+
+  let actionsHtml = `<button class="btn-small" id="updates-recheck-btn">Check again</button>`;
+  if (data.updateAvailable) {
+    actionsHtml += ` <a class="btn-small" href="${escHtml(data.compareUrl)}" target="_blank" rel="noopener">View changes on GitHub</a>`;
+    if (data.deploymentType === "git") {
+      actionsHtml += ` <button class="btn-small" id="updates-apply-btn" style="border-color:var(--accent); color:var(--accent);">Update now</button>`;
+    }
+  }
+
+  let dockerHint = "";
+  if (data.updateAvailable && data.deploymentType === "docker") {
+    dockerHint = `
+      <div class="update-docker-hint">
+        Docker deployments update by pulling a new image and restarting the container:
+        <code>docker pull ghcr.io/${escHtml((data.repoSlug || "").toLowerCase())}:latest</code>
+        See the README's Updating section for automating this with Watchtower.
+      </div>
+    `;
+  }
+
+  body.innerHTML = `
+    <div class="update-status-row">
+      <span class="update-version">Running <code>${escHtml(shortSha(data.current))}</code> · ${escHtml(deploymentLabel)}</span>
+      <span class="update-pill ${pillClass}">${pillText}</span>
+    </div>
+    ${dockerHint}
+    <div class="update-actions">${actionsHtml}</div>
+    <div id="updates-status-msg" class="status-msg"></div>
+  `;
+
+  document.getElementById("updates-recheck-btn").addEventListener("click", loadUpdates);
+  const applyBtn = document.getElementById("updates-apply-btn");
+  if (applyBtn) applyBtn.addEventListener("click", applyUpdate);
+}
+
+async function loadUpdates() {
+  const body = document.getElementById("updates-body");
+  body.innerHTML = `<p style="color:var(--text-dim); font-size:0.85rem;">Checking…</p>`;
+  try {
+    const res = await fetch("/api/updates/status", { headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to check for updates");
+    renderUpdatesBody(data);
+  } catch (e) {
+    body.innerHTML = `<p style="color:var(--accent); font-size:0.85rem;">Error: ${escHtml(e.message)}</p>`;
+  }
+}
+
+async function applyUpdate() {
+  const msgEl = document.getElementById("updates-status-msg");
+  const btn = document.getElementById("updates-apply-btn");
+  if (btn) btn.disabled = true;
+  if (msgEl) { msgEl.textContent = "Updating…"; msgEl.className = "status-msg info"; }
+  try {
+    const res = await fetch("/api/updates/apply", { method: "POST", headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Update failed");
+    if (msgEl) {
+      msgEl.textContent = "Update applied — the server is restarting. Refresh this page in a moment.";
+      msgEl.className = "status-msg success";
+    }
+  } catch (e) {
+    if (msgEl) { msgEl.textContent = "Failed: " + e.message; msgEl.className = "status-msg error"; }
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function attemptUnlock() {
   const password = document.getElementById("lock-password").value;
   const errEl = document.getElementById("lock-error");
@@ -631,7 +757,8 @@ async function attemptUnlock() {
     document.getElementById("settings-card").style.display = "block";
     document.getElementById("plugins-card").style.display = "block";
     document.getElementById("recordings-card").style.display = "block";
-    await Promise.all([loadSettings(), fetchPlugins(), loadRecordingsManagement()]);
+    document.getElementById("updates-card").style.display = "block";
+    await Promise.all([loadSettings(), fetchPlugins(), loadRecordingsManagement(), loadUpdates()]);
   } catch {
     errEl.textContent = "Could not reach server";
     errEl.style.display = "";
