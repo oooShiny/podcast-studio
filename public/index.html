@@ -3515,6 +3515,16 @@ document.querySelectorAll(".sidebar-tab").forEach(wireSidebarTab);
 
 // ── Plugin sidebar tab registration ──
 // Lets a plugin's tab.js add a new sidebar tab/panel without editing this file.
+
+// Episode source override: a plugin can call registerEpisodeSource(async fn) so the
+// prep notes panel loads its game/episode list from a custom source (e.g. Bunny CDN)
+// instead of the default /api/prep-notes/games endpoint.
+let _prepNoteEpisodeSource = null;
+
+// Prep note tabs override: a plugin can replace the default [Shared Notes, My Notes]
+// tabs with a custom set (e.g. [Game, Patriots, Opponent, My Notes]).
+let _prepNoteTabs = null;
+
 window.PodcastStudioPlugins = {
   registerSidebarTab({ id, label, panelHTML, onMount }) {
     const tabsContainer = document.querySelector(".sidebar-tabs");
@@ -3538,6 +3548,14 @@ window.PodcastStudioPlugins = {
 
     if (onMount) onMount(panel);
   },
+
+  // Override how the prep notes panel populates its episode/game list.
+  // fn: async (currentSlug?) => [{slug: string, title: string, group?: string}]
+  registerEpisodeSource(fn) { _prepNoteEpisodeSource = fn; },
+
+  // Override which note tabs appear in the prep notes panel.
+  // tabs: [{id: string, label: string}]
+  registerPrepNoteTabs(tabs) { _prepNoteTabs = tabs; },
 };
 
 // ── Plugin script discovery ──
@@ -4025,24 +4043,68 @@ chatInput.addEventListener("keydown", (e) => {
   const tabBar      = document.getElementById("pn-tabs");
   const body        = document.getElementById("pn-body");
   let currentNotes  = null;
-  let activeTab     = "n-shared";
+  let myNotes       = null;
 
-  const TAB_LABELS = { "n-shared": "Shared Notes", "n-mine": "My Notes" };
-  let myNotes = null;
+  // Plugins can override the default tab set via PodcastStudioPlugins.registerPrepNoteTabs().
+  // Default: [Shared Notes, My Notes]. Tabs are built lazily on first use.
+  const DEFAULT_TABS = [
+    { id: "n-shared", label: "Shared Notes" },
+    { id: "n-mine",   label: "My Notes" },
+  ];
+
+  function getTabs() { return _prepNoteTabs || DEFAULT_TABS; }
+
+  // Build the tab bar from the registered (or default) tab list.
+  function buildTabBar() {
+    const tabs = getTabs();
+    tabBar.innerHTML = tabs.map((t, i) =>
+      `<button class="pn-tab${i === 0 ? " active" : ""}" data-pntab="${t.id}">${t.label}</button>`
+    ).join("");
+    tabBar.querySelectorAll(".pn-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        tabBar.querySelectorAll(".pn-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        activeTab = tab.dataset.pntab;
+        renderTab();
+      });
+    });
+  }
+
+  let activeTab = DEFAULT_TABS[0].id;
+  buildTabBar();
 
   async function loadGames() {
     try {
-      const res = await fetch("/api/prep-notes/games");
-      const games = res.ok ? await res.json() : [];
+      // Plugins can supply a custom episode list (e.g. from Bunny CDN).
+      let games;
+      if (_prepNoteEpisodeSource) {
+        games = await _prepNoteEpisodeSource(gameSelect.value || undefined);
+      } else {
+        const res = await fetch("/api/prep-notes/games");
+        games = res.ok ? await res.json() : [];
+      }
       const prev = gameSelect.value;
       gameSelect.innerHTML = '<option value="">Select episode…</option>';
+
+      // Support optional group (season) for <optgroup> rendering.
+      let currentGroup = null;
+      let groupEl = null;
       games.forEach(g => {
-        const slug = g.slug ?? g;
-        const label = g.title ?? slug.replace(/_/g, " ");
+        const slug  = g.slug  ?? g;
+        const label = g.title ?? String(slug).replace(/_/g, " ");
+        const group = g.group ?? null;
+
+        if (group && group !== currentGroup) {
+          groupEl = document.createElement("optgroup");
+          groupEl.label = group;
+          gameSelect.appendChild(groupEl);
+          currentGroup = group;
+        }
+
         const opt = document.createElement("option");
         opt.value = slug;
         opt.textContent = label;
-        gameSelect.appendChild(opt);
+        (groupEl && group ? groupEl : gameSelect).appendChild(opt);
       });
       if (prev && games.some(g => (g.slug ?? g) === prev)) gameSelect.value = prev;
     } catch {}
@@ -4084,22 +4146,19 @@ chatInput.addEventListener("keydown", (e) => {
   }
 
   function renderTab() {
-    if (!currentNotes && !myNotes) {
+    const tabs = getTabs();
+    const tab  = tabs.find(t => t.id === activeTab) || tabs[0];
+    if (!tab) { body.innerHTML = ""; return; }
+
+    // Private tab: reads from myNotes (not shared).
+    const source = tab.shared === false ? myNotes : currentNotes;
+    if (!source && !currentNotes && !myNotes) {
       body.innerHTML = '<div class="pn-empty">No notes found for this episode.</div>';
       return;
     }
-    if (activeTab === "n-mine") {
-      const html = noteDataToHtml(myNotes?.["n-mine"]);
-      if (!html) {
-        body.innerHTML = '<div class="pn-empty">No personal notes for this episode yet.</div>';
-        return;
-      }
-      body.innerHTML = `<div class="pn-blocks">${html}</div>`;
-      return;
-    }
-    const html = noteDataToHtml(currentNotes?.["n-shared"]);
+    const html = noteDataToHtml(source?.[tab.id]);
     if (!html) {
-      body.innerHTML = `<div class="pn-empty">No ${TAB_LABELS[activeTab] || activeTab} notes yet.</div>`;
+      body.innerHTML = `<div class="pn-empty">No ${tab.label} notes yet.</div>`;
       return;
     }
     body.innerHTML = `<div class="pn-blocks">${html}</div>`;
@@ -4131,19 +4190,18 @@ chatInput.addEventListener("keydown", (e) => {
     await loadNotes(gameSelect.value);
   });
 
-  tabBar.querySelectorAll(".pn-tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-      tabBar.querySelectorAll(".pn-tab").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      activeTab = tab.dataset.pntab;
-      renderTab();
-    });
-  });
-
   // Load episode list when the Prep Notes tab is first clicked
   document.querySelector('.sidebar-tab[data-tab="prepnotes"]').addEventListener("click", () => {
     if (gameSelect.options.length <= 1) loadGames();
   });
+
+  // Re-build the tab bar whenever a plugin overrides tabs (called from tab.js after load).
+  window._rebuildPrepNoteTabs = function () {
+    const tabs = getTabs();
+    activeTab = tabs[0]?.id || "n-shared";
+    buildTabBar();
+    renderTab();
+  };
 
   async function autoLoadCurrentGame() {
     try {

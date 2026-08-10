@@ -1166,6 +1166,14 @@
         <!-- Collapsible body (always visible on desktop) -->
         <div class="source-rail-body">
 
+          <!-- Auto-injected sources (e.g. plugin-supplied reference links) -->
+          <div class="rail-group" id="auto-sources-group" style="display:none">
+            <div class="rail-group-header">
+              <span class="rail-group-title">AUTO</span>
+            </div>
+            <div id="rail-auto-items"></div>
+          </div>
+
           <div class="rail-group">
             <div class="rail-group-header">
               <span class="rail-group-title">SOURCES</span>
@@ -1383,7 +1391,47 @@
   </div>
 
   <script>
-  document.addEventListener('DOMContentLoaded', () => {
+  // PodcastStudioPrep plugin API — defined here so plugins' prep.js can call
+  // configure()/registerSourceViewer() before the main DOMContentLoaded initializer
+  // runs (plugin scripts load and execute during the await below).
+  window.PodcastStudioPrep = (function() {
+    let _config = null;
+    const _sourceViewers = [];
+    let _insertTimestampImpl = () => {};
+    return {
+      configure(cfg) { _config = Object.assign(_config || {}, cfg); },
+      _get() { return _config; },
+      // Plugins call this to register a viewer for embed URL sources.
+      // match(src) → bool; mount(el, src) → { getTime, cleanup }
+      registerSourceViewer(viewer) { _sourceViewers.push(viewer); },
+      // Exposed so plugin-rendered buttons can trigger timestamp insertion.
+      insertTimestamp() { _insertTimestampImpl(); },
+      _sourceViewers,
+      _bindInsertTimestamp(fn) { _insertTimestampImpl = fn; },
+    };
+  })();
+
+  // Start fetching prep-plugin scripts immediately so they're ready at init time.
+  window._prepPluginsReady = fetch('/api/plugins')
+    .then(r => r.ok ? r.json() : [])
+    .then(function(plugins) {
+      var pp = plugins.filter(function(p) { return p.hasPrepScript && p.enabled !== false; });
+      return Promise.all(pp.map(function(p) {
+        return new Promise(function(resolve) {
+          var s = document.createElement('script');
+          s.src = '/plugins/' + p.name + '/prep.js';
+          s.onload = s.onerror = resolve;
+          document.head.appendChild(s);
+        });
+      }));
+    })
+    .catch(function() {});
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Wait for any prep-plugin scripts to finish loading so they can call
+    // PodcastStudioPrep.configure() before we read the config below.
+    await window._prepPluginsReady;
+    window.PodcastStudioPrep._bindInsertTimestamp(insertTimestamp);
 
     // ── Elements ──────────────────────────────────────────────────────
     const episodeSelect     = document.getElementById('episode-select');
@@ -1420,9 +1468,11 @@
     let activeTab         = 'shared';
     let quoteMode         = false;
     let sources           = [];
+    let autoSources       = [];
+    let gameVideoHls      = null;
     let activeSourceId    = null;
     let prepWs            = null;
-    let prepSourceViewers = [];   // registered by plugins via PodcastStudioPrep
+    const prepSourceViewers = window.PodcastStudioPrep._sourceViewers; // registered by plugins
     let activePrepViewer  = null; // { getTime, cleanup } from the active plugin viewer
     let broadcastTimers   = {};
     let applyQueue        = {};
@@ -1450,8 +1500,9 @@
         setCurrentBtn.classList.add('ghost');
         return;
       }
-      const pinned = getPinned();
-      const isPinned = pinned?.slug === currentGameSlug;
+      const getDefault = window.PodcastStudioPrep._get()?.getDefault;
+      const def = getDefault ? getDefault() : getPinned();
+      const isPinned = def?.slug === currentGameSlug;
       setCurrentBtn.disabled = false;
       setCurrentBtn.textContent = isPinned ? '★ Current Episode' : '☆ Set as Current';
       setCurrentBtn.classList.toggle('green-btn', isPinned);
@@ -1460,19 +1511,62 @@
 
     setCurrentBtn.addEventListener('click', () => {
       if (!currentGameSlug) return;
-      const pinned = getPinned();
-      if (pinned?.slug === currentGameSlug) {
+      const onSetDefault = window.PodcastStudioPrep._get()?.onSetDefault;
+      const getDefault   = window.PodcastStudioPrep._get()?.getDefault;
+      const def = getDefault ? getDefault() : getPinned();
+      if (def?.slug === currentGameSlug) {
         clearPinned();
+        if (onSetDefault) onSetDefault(null, null);
       } else {
         setPinned(currentGameSlug, currentGameTitle);
+        if (onSetDefault) onSetDefault(currentGameSlug, currentGameTitle);
       }
       updateSetCurrentBtn();
     });
 
-    // ── Note fields ───────────────────────────────────────────────────
-    const NOTE_FIELDS = ['n-shared', 'n-mine'];
+    // ── Note fields (configurable by plugins via PodcastStudioPrep.configure) ─
+    const _prepCfg = window.PodcastStudioPrep._get();
+    const _cfgFields = _prepCfg?.noteFields;
 
-    const NOTE_DEFAULTS = {};
+    const NOTE_FIELDS = _cfgFields ? _cfgFields.map(f => f.id) : ['n-shared', 'n-mine'];
+
+    const NOTE_DEFAULTS = _cfgFields
+      ? _cfgFields.reduce((acc, f) => { if (f.defaultContent) acc[f.id] = { html: f.defaultContent }; return acc; }, {})
+      : {};
+
+    // Plugin-defined shared fields (saved to _shared user). Default: n-shared only.
+    const SHARED_FIELDS_SET = new Set(
+      _cfgFields
+        ? _cfgFields.filter(f => f.shared !== false).map(f => f.id)
+        : ['n-shared']
+    );
+
+    // If a plugin supplied custom note fields, rebuild the tab bar and note sections
+    // in the DOM so they match the configured fields.
+    if (_cfgFields) {
+      const tabRow = document.querySelector('.d-tab-row');
+      if (tabRow) {
+        tabRow.innerHTML = _cfgFields.map((f, i) => {
+          const key = f.id.replace(/^n-/, '');
+          return `<button class="d-tab${i === 0 ? ' active' : ''}" data-tab="${key}">` +
+            (f.icon ? `<span class="d-tab-icon">${f.icon}</span>` : '') +
+            f.label +
+            (f.shared === false ? '<span class="you-chip">YOU</span>' : '') +
+            `</button>`;
+        }).join('');
+      }
+      const scrollEl = document.querySelector('.notes-doc-scroll');
+      if (scrollEl) {
+        scrollEl.innerHTML = _cfgFields.map((f, i) => {
+          const key = f.id.replace(/^n-/, '');
+          return `<div id="tab-${key}" class="note-section${i === 0 ? ' active' : ''}">` +
+            `<textarea id="ej-${f.id}" class="wysi-holder" data-editor-holder></textarea>` +
+            `<div class="ts-chips-row" data-field="${f.id}"></div>` +
+            `</div>`;
+        }).join('');
+      }
+      activeTab = (_cfgFields[0]?.id || 'n-shared').replace(/^n-/, '');
+    }
 
     // ── Time helpers ──────────────────────────────────────────────────
     function formatTime(secs) {
@@ -1729,7 +1823,7 @@
     //  REAL-TIME COLLABORATION (WebSocket)
     // ══════════════════════════════════════════
 
-    const SHARED_FIELDS = ['n-shared'];
+    const SHARED_FIELDS = [...SHARED_FIELDS_SET];
 
     function connectPrepWs() {
       if (prepWs && prepWs.readyState < 2) return;
@@ -2404,6 +2498,7 @@
     function resetFocalPane() {
       if (currentViewerCleanup) { currentViewerCleanup(); currentViewerCleanup = null; }
       if (activePrepViewer) { try { activePrepViewer.cleanup?.(); } catch {} activePrepViewer = null; }
+      if (gameVideoHls) { gameVideoHls.destroy(); gameVideoHls = null; }
       activeSourceId = null;
       videoPlayer.pause();
       videoPlayer.removeAttribute('src');
@@ -2414,6 +2509,65 @@
       focalReading.innerHTML = '';
       document.getElementById('focal-title').textContent = 'No source selected';
       document.getElementById('focal-meta').textContent  = 'Add a source to get started';
+    }
+
+    // Load hls.js on demand for HLS video streams
+    async function ensureHls() {
+      if (typeof Hls !== 'undefined') return;
+      await new Promise(resolve => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+        s.onload = s.onerror = resolve;
+        document.head.appendChild(s);
+      });
+    }
+
+    // Load a plugin-supplied game video URL into the focal pane video player
+    async function loadGameVideo(url) {
+      if (gameVideoHls) { gameVideoHls.destroy(); gameVideoHls = null; }
+      videoPlayer.pause();
+      videoPlayer.removeAttribute('src');
+      focalReading.classList.remove('active');
+      focalReading.innerHTML = '';
+      focalVideo.style.display = '';
+      document.getElementById('focal-meta').textContent = 'Game video';
+      if (url.includes('.m3u8')) {
+        await ensureHls();
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+          gameVideoHls = new Hls();
+          gameVideoHls.loadSource(url);
+          gameVideoHls.attachMedia(videoPlayer);
+        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+          videoPlayer.src = url;
+        }
+      } else {
+        videoPlayer.src = url;
+      }
+    }
+
+    // Render plugin-injected auto-sources (e.g. opponent/reference links) above the source rail
+    function renderAutoSources() {
+      const group = document.getElementById('auto-sources-group');
+      const items = document.getElementById('rail-auto-items');
+      if (!group || !items) return;
+      if (!autoSources.length) { group.style.display = 'none'; return; }
+      group.style.display = '';
+      items.innerHTML = '';
+      autoSources.forEach(src => {
+        const btn = document.createElement('button');
+        btn.className = 'source-item';
+        btn.innerHTML =
+          '<span class="source-icon" style="font-size:15px">↗</span>' +
+          '<div class="source-item-meta">' +
+            `<div class="source-item-label">${escHtml(src.name)}</div>` +
+            '<div class="source-item-kind">' +
+              `<span class="kind-lbl" style="color:var(--ink-4)">${escHtml(src.domain || 'LINK')}</span>` +
+              '<span class="source-item-auto">AUTO</span>' +
+            '</div>' +
+          '</div>';
+        btn.addEventListener('click', () => window.open(src.url, '_blank', 'noopener'));
+        items.appendChild(btn);
+      });
     }
 
     function authHeaders() {
@@ -2570,13 +2724,30 @@
     // ── Episode management ───────────────────────────────────────────
     async function loadEpisodes() {
       try {
-        const res = await fetch('/api/prep-notes/games');
-        const episodes = res.ok ? await res.json() : [];
+        // Plugin can supply episodes from an external source (e.g. a CDN).
+        let episodes;
+        const epSource = window.PodcastStudioPrep._get()?.getEpisodes;
+        if (epSource) {
+          episodes = await epSource(currentGameSlug || undefined);
+        } else {
+          const res = await fetch('/api/prep-notes/games');
+          episodes = res.ok ? await res.json() : [];
+        }
         episodeSelect.innerHTML = '<option value="">Select an episode…</option>';
+        let currentGroup = null, groupEl = null;
         episodes.forEach(ep => {
+          const slug  = ep.slug  ?? ep;
+          const title = ep.title ?? String(slug).replace(/_/g, ' ');
+          const group = ep.group ?? null;
+          if (group && group !== currentGroup) {
+            groupEl = document.createElement('optgroup');
+            groupEl.label = group;
+            episodeSelect.appendChild(groupEl);
+            currentGroup = group;
+          }
           const o = document.createElement('option');
-          o.value = ep.slug; o.textContent = ep.title; o.dataset.title = ep.title;
-          episodeSelect.appendChild(o);
+          o.value = slug; o.textContent = title; o.dataset.title = title;
+          (groupEl && group ? groupEl : episodeSelect).appendChild(o);
         });
         if (currentGameSlug && !Array.from(episodeSelect.options).some(o => o.value === currentGameSlug)) {
           const o = document.createElement('option');
@@ -2586,13 +2757,14 @@
         if (currentGameSlug) {
           episodeSelect.value = currentGameSlug;
         } else {
-          // Auto-load the pinned episode if one is set and no episode is active yet
-          const pinned = getPinned();
-          if (pinned?.slug) {
-            const opt = Array.from(episodeSelect.options).find(o => o.value === pinned.slug);
+          // Auto-load the default episode: plugin-supplied if present, else the pinned one
+          const getDefault = window.PodcastStudioPrep._get()?.getDefault;
+          const def = getDefault ? getDefault() : getPinned();
+          if (def?.slug) {
+            const opt = Array.from(episodeSelect.options).find(o => o.value === def.slug);
             if (opt) {
-              episodeSelect.value = pinned.slug;
-              await selectEpisode(pinned.slug, opt.dataset.title || opt.textContent || pinned.title);
+              episodeSelect.value = def.slug;
+              await selectEpisode(def.slug, opt.dataset.title || opt.textContent || def.title);
             }
           }
         }
@@ -2618,6 +2790,22 @@
       loadSources();
       loadScreenshots();
       joinPrepRoom();
+
+      // Auto-load game video from plugin
+      const getVideoUrl = window.PodcastStudioPrep._get()?.getVideoUrl;
+      if (getVideoUrl) {
+        getVideoUrl(slug).then(url => { if (url) loadGameVideo(url); }).catch(() => {});
+      }
+
+      // Auto-inject opponent links and other sources from plugin
+      const getAutoSources = window.PodcastStudioPrep._get()?.getAutoSources;
+      autoSources = [];
+      renderAutoSources();
+      if (getAutoSources) {
+        getAutoSources(slug, title).then(as => {
+          if (Array.isArray(as) && as.length) { autoSources = as; renderAutoSources(); }
+        }).catch(() => {});
+      }
     }
 
     episodeSelect.addEventListener('change', () => {
@@ -2628,6 +2816,7 @@
         updateSetCurrentBtn();
         resetFocalPane();
         sources = []; renderSourceRail();
+        autoSources = []; renderAutoSources();
         setSaveStatus('No episode selected', 'idle');
         return;
       }
@@ -2879,28 +3068,6 @@
       btn.textContent = pinned ? '⊙ Unpin' : '⊙ Pin';
       btn.title = pinned ? 'Unpin video' : 'Pin video to top while scrolling';
     });
-
-    // ── Plugin extension API for prep.html ───────────────────────────
-    window.PodcastStudioPrep = {
-      // Plugins call this to register a viewer for embed URL sources.
-      // match(src) → bool; mount(el, src) → { getTime, cleanup }
-      registerSourceViewer(viewer) { prepSourceViewers.push(viewer); },
-      // Exposed so plugin-rendered buttons can trigger timestamp insertion.
-      insertTimestamp() { insertTimestamp(); },
-    };
-
-    // Load prep.js from enabled plugins (mirrors how tab.js is loaded in index.html)
-    fetch('/api/plugins')
-      .then(r => r.json())
-      .then(plugins => {
-        for (const plugin of plugins) {
-          if (!plugin.hasPrepScript || plugin.enabled === false) continue;
-          const s = document.createElement('script');
-          s.src = `/plugins/${plugin.name}/prep.js`;
-          document.body.appendChild(s);
-        }
-      })
-      .catch(() => {});
 
     // ── Init ──────────────────────────────────────────────────────────
     PSNavHeader.render(document.getElementById('ps-nav-header'), { current: 'prep', role: currentRole });
