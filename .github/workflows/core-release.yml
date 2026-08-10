@@ -1,0 +1,42 @@
+name: Publish core release
+
+# Path list here mirrors core-manifest.json's "paths" — Actions can't read
+# repo content to build this filter dynamically, so keep both in sync.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server.js"
+      - "package.json"
+      - "package-lock.json"
+      - "lib/**"
+      - "public/**"
+
+jobs:
+  publish-core-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build core-version.json
+        run: |
+          jq -n --arg sha "${{ github.sha }}" --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{sha:$sha, builtAt:$builtAt}' > core-version.json
+
+      - name: Build tarball
+        run: |
+          paths=$(jq -r '.paths[]' core-manifest.json)
+          tar -czf "core-${{ github.sha }}.tar.gz" -C . $paths core-version.json
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="${{ github.sha }}"
+          gh release create "core-${sha}" "core-${sha}.tar.gz" \
+            --target main \
+            --title "Core update $(date -u +%Y-%m-%d) ${sha:0:7}" \
+            --notes "Automated core release. Commit: ${sha}"

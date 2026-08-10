@@ -135,15 +135,25 @@ Or build the image yourself from a local clone with `docker build -t podcast-stu
 
 ## Updating
 
-How you pick up new commits depends on how you deployed:
+Podcast Studio ships **core updates** (server.js, `lib/`, `public/`) as versioned
+GitHub Releases, separately from any plugins or product-specific customization
+you've added — an update never touches `plugins/` or any stored data. This works
+for any instance running this codebase, including forks with no shared git
+history with this repo, not just direct clones.
 
-- **VPS/PM2 instance you administer**: point a GitHub webhook at `POST /webhook` with
-  `WEBHOOK_SECRET` set (see [Public Demo Deployments](#public-demo-deployments) below) —
-  every push to `main` triggers a `git pull` and restart automatically.
-- **git clone without webhook access** (most self-hosted installs): go to `/settings` →
-  **Updates**, which checks GitHub for newer commits on `main` and (for git-based
-  deployments) offers an **Update now** button that pulls and restarts for you. You can
-  also just run `git pull` and restart the process yourself.
+How you pick up new core releases depends on how you deployed:
+
+- **Any git or plain-file instance** (including diverged forks): go to `/settings` →
+  **Updates**, which checks this repo's latest core release and offers an
+  **Update now** button that downloads and applies just the core files, then
+  restarts. No git history in common with this repo is required.
+- **VPS/PM2 instance you administer, with a webhook configured**: point a GitHub
+  webhook at `POST /webhook` with `WEBHOOK_SECRET` set (see
+  [Public Demo Deployments](#public-demo-deployments) below) — every push to `main`
+  triggers a full `git pull` (everything tracked in this repo, not just core) and
+  restart automatically. This is a separate, opt-in mechanism for people who own
+  this exact repo checkout — most self-hosted/forked installs should use the
+  Settings panel above instead.
 - **Docker**: pull the latest image and recreate the container —
   `docker pull ghcr.io/oooshiny/podcast-studio:latest` — or run
   [Watchtower](https://containrrr.dev/watchtower/) alongside it to automate that:
@@ -154,9 +164,10 @@ How you pick up new commits depends on how you deployed:
     containrrr/watchtower podcast-studio
   ```
 
-The `/settings` → Updates panel always shows whether a newer commit exists on `main`,
-regardless of how the instance was deployed — it just can't apply the update itself for
-Docker (the app can't replace its own container from inside itself).
+The `/settings` → Updates panel always shows whether a newer core release exists,
+regardless of how the instance was deployed — it just can't apply the update itself
+for Docker (the app can't replace its own container from inside itself). Applying a
+core update shells out to the system `tar` binary, so `tar` must be on `PATH`.
 
 ## Public Demo Deployments
 

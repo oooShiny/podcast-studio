@@ -30,3 +30,7 @@ studio-settings.json
 plugins-settings.json
 
 sessions.json
+
+core-version.json
+
+*.tar.gz

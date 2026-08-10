@@ -1,0 +1,4 @@
+{
+  "_comment": "Core paths shipped in core distribution releases (see .github/workflows/core-release.yml, which duplicates this list in its push.paths trigger — keep both in sync).",
+  "paths": ["server.js", "package.json", "package-lock.json", "lib", "public"]
+}

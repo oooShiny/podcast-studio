@@ -268,7 +268,7 @@
 
 <div id="updates-card" class="card" style="margin-top:1.5rem; display:none;">
   <h1>Updates</h1>
-  <p class="sub">Checks the project's GitHub repo for newer commits on <code>main</code>.</p>
+  <p class="sub">Checks for new core releases of Podcast Studio. Only core files (server, lib, public) are updated — your plugins and data are never touched.</p>
   <div id="updates-body">
     <p style="color:var(--text-dim); font-size:0.85rem;">Checking…</p>
   </div>
@@ -659,13 +659,14 @@ function renderUpdatesBody(data) {
     return;
   }
 
-  const pillClass = data.updateAvailable ? "available" : "current";
-  const pillText = data.updateAvailable ? "Update available" : "Up to date";
+  const neverApplied = data.current == null;
+  const pillClass = neverApplied || data.updateAvailable ? "available" : "current";
+  const pillText = neverApplied ? "Not tracked yet" : (data.updateAvailable ? "Update available" : "Up to date");
 
   let actionsHtml = `<button class="btn-small" id="updates-recheck-btn">Check again</button>`;
   if (data.updateAvailable) {
-    actionsHtml += ` <a class="btn-small" href="${escHtml(data.compareUrl)}" target="_blank" rel="noopener">View changes on GitHub</a>`;
-    if (data.deploymentType === "git") {
+    actionsHtml += ` <a class="btn-small" href="${escHtml(data.releaseUrl)}" target="_blank" rel="noopener">View release on GitHub</a>`;
+    if (data.deploymentType !== "docker") {
       actionsHtml += ` <button class="btn-small" id="updates-apply-btn" style="border-color:var(--accent); color:var(--accent);">Update now</button>`;
     }
   }
@@ -681,13 +682,19 @@ function renderUpdatesBody(data) {
     `;
   }
 
+  const neverAppliedHint = neverApplied
+    ? `<p style="color:var(--text-dim); font-size:0.8rem; margin-top:0.5rem;">No core version tracked yet — running Update will install the latest release and start tracking it.</p>`
+    : "";
+
   body.innerHTML = `
     <div class="update-status-row">
       <span class="update-version">Running <code>${escHtml(shortSha(data.current))}</code> · ${escHtml(deploymentLabel)}</span>
       <span class="update-pill ${pillClass}">${pillText}</span>
     </div>
+    ${neverAppliedHint}
     ${dockerHint}
     <div class="update-actions">${actionsHtml}</div>
+    <p style="color:var(--text-dim); font-size:0.75rem; margin-top:0.6rem;">Core-only update — plugins and stored data are left untouched.</p>
     <div id="updates-status-msg" class="status-msg"></div>
   `;
 
@@ -719,7 +726,8 @@ async function applyUpdate() {
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "Update failed");
     if (msgEl) {
-      msgEl.textContent = "Update applied — the server is restarting. Refresh this page in a moment.";
+      const warningText = data.warnings && data.warnings.length ? " Warnings: " + data.warnings.join("; ") : "";
+      msgEl.textContent = "Update applied — the server is restarting. Refresh this page in a moment." + warningText;
       msgEl.className = "status-msg success";
     }
   } catch (e) {
