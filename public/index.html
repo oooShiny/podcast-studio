@@ -1472,6 +1472,7 @@
         <button class="ctrl-btn" id="mic-toggle" title="Toggle Microphone"><img class="btn-icon" src="icons/mic-on.webp"></button>
         <button class="ctrl-btn" id="cam-toggle" title="Toggle Camera"><img class="btn-icon" src="icons/video.webp"></button>
         <button class="ctrl-btn record-btn" id="record-btn" title="Start Recording">REC</button>
+        <button class="ctrl-btn" id="marker-btn" title="Add Marker" style="display:none;">🚩</button>
         <button class="ctrl-btn" id="downloads-btn" title="Downloads"><img class="btn-icon" src="icons/downloads.webp"></button>
         <button class="ctrl-btn" id="sidebar-toggle" title="Show/Hide Sidebar"><img class="btn-icon" src="icons/sidebar.webp"></button>
         <button class="ctrl-btn leave-btn" id="leave-btn" title="Leave">✕</button>
@@ -2087,6 +2088,8 @@ document.getElementById("join-btn").addEventListener("click", async () => {
   // Show/hide host-only controls
   const recordBtn = document.getElementById("record-btn");
   if (recordBtn) recordBtn.style.display = state.role === "host" ? "" : "none";
+  const markerBtn = document.getElementById("marker-btn");
+  if (markerBtn) markerBtn.style.display = state.role === "host" ? "" : "none";
   PSNavHeader.render(document.getElementById("ps-nav-header"), { current: "studio", role: state.role });
 
   // Re-apply tab visibility now that role is known (guest/member chat tab gating)
@@ -2746,6 +2749,34 @@ document.getElementById("record-btn").addEventListener("click", () => {
     }));
   }
 });
+
+document.getElementById("marker-btn").addEventListener("click", async () => {
+  if (!state.isHost) return;
+  if (!state.isRecording || !state.recordStart || !state.sessionId) {
+    showToast("Start recording to add markers", "info");
+    return;
+  }
+
+  const offsetSec = (Date.now() - state.recordStart) / 1000;
+
+  try {
+    const res = await fetch(`/api/sessions/${state.sessionId}/markers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ offsetSec }),
+    });
+    if (!res.ok) throw new Error();
+    showToast(`Marker added at ${fmtMarkerTime(offsetSec)}`, "success");
+  } catch {
+    showToast("Could not add marker", "error");
+  }
+});
+
+function fmtMarkerTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 function handleRecordingControl(msg) {
   switch (msg.action) {

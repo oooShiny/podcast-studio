@@ -180,6 +180,40 @@
   .align-status.ok { color: #4ade80; }
   .align-status.err { color: var(--accent); }
 
+  /* ── Markers ── */
+  .markers-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .markers-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .markers-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .marker-chip {
+    font-size: 0.78rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid rgba(250, 204, 21, 0.4);
+    background: rgba(250, 204, 21, 0.1);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .marker-chip:hover {
+    border-color: rgba(250, 204, 21, 0.8);
+    background: rgba(250, 204, 21, 0.18);
+  }
+
   /* ── Trim ── */
   .trim-row {
     display: flex;
@@ -435,6 +469,11 @@
         <span class="align-status" id="align-status"></span>
       </div>
 
+      <div class="markers-row" id="markers-row" style="display:none;">
+        <span class="markers-label">Markers</span>
+        <div id="markers-list" class="markers-list"></div>
+      </div>
+
       <div class="processing-row">
         <label class="proc-toggle">
           <input type="checkbox" id="autolevel-enabled" />
@@ -534,6 +573,7 @@ let role = null;
 let sessionId = null;
 let sessionData = null;
 let wavesurfers = [];
+let markerPlugins = [];
 let isPlaying = false;
 let activeRegionsPlugin = null;
 let previewMode = false;
@@ -661,6 +701,7 @@ function openSession(id) {
   // Reset editor state for the new session
   wavesurfers.forEach((ws) => ws.destroy());
   wavesurfers = [];
+  markerPlugins = [];
   isPlaying = false;
   previewMode = false;
   activeRegionsPlugin = null;
@@ -755,6 +796,7 @@ async function loadSession() {
 
   renderTrackRows();
   renderWaveforms();
+  renderMarkersList();
   renderPastExports();
 }
 
@@ -837,6 +879,7 @@ async function renderWaveforms() {
   // Destroy existing instances
   wavesurfers.forEach((ws) => ws.destroy());
   wavesurfers = [];
+  markerPlugins = [];
   activeRegionsPlugin = null;
   previewMode = false;
   // Clear previous track divs (keep the loading indicator)
@@ -898,6 +941,14 @@ async function renderWaveforms() {
       });
     }
 
+    // Marker overlay — separate regions plugin so it never interferes with trim selection
+    const markerPlugin = ws.registerPlugin(RegionsPlugin.create());
+    markerPlugins[i] = markerPlugin;
+    markerPlugin.on('region-clicked', (region, e) => {
+      e.stopPropagation();
+      seekAllTracks(region.start);
+    });
+
     ws.on('ready', () => {
       readyCount++;
       if (readyCount === total) {
@@ -910,6 +961,7 @@ async function renderWaveforms() {
           syncRegionToTrim();
         }
       }
+      renderMarkerRegions(markerPlugin);
     });
 
     ws.on('timeupdate', (time) => {
@@ -939,6 +991,56 @@ async function renderWaveforms() {
 
     wavesurfers.push(ws);
   });
+}
+
+// ── Markers ──
+function renderMarkerRegions(plugin) {
+  plugin.getRegions().forEach((r) => r.remove());
+  (sessionData?.markers || []).forEach((m) => {
+    const content = document.createElement('div');
+    content.textContent = '🚩';
+    content.title = `${fmtTime(m.offsetSec)}${m.label ? ' — ' + m.label : ''}`;
+    content.style.cssText = 'font-size:12px;line-height:1;cursor:pointer;';
+    plugin.addRegion({
+      start: m.offsetSec,
+      content,
+      color: 'rgba(250, 204, 21, 0.9)',
+      drag: false,
+      resize: false,
+    });
+  });
+}
+
+function renderMarkersList() {
+  const row = document.getElementById('markers-row');
+  const list = document.getElementById('markers-list');
+  list.innerHTML = '';
+  const markers = (sessionData?.markers || []).slice().sort((a, b) => a.offsetSec - b.offsetSec);
+
+  if (markers.length === 0) {
+    row.style.display = 'none';
+    return;
+  }
+
+  row.style.display = '';
+  markers.forEach((m) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'marker-chip';
+    chip.textContent = `🚩 ${fmtTime(m.offsetSec)}`;
+    chip.title = m.label || 'Jump to marker';
+    chip.addEventListener('click', () => seekAllTracks(m.offsetSec));
+    list.appendChild(chip);
+  });
+}
+
+function seekAllTracks(time) {
+  wavesurfers.forEach((ws) => {
+    const dur = ws.getDuration() || 0;
+    ws.setTime(Math.max(0, Math.min(time, dur)));
+  });
+  const dur0 = wavesurfers[0]?.getDuration() || 0;
+  document.getElementById('time-display').textContent = `${fmtTime(time)} / ${fmtTime(dur0)}`;
 }
 
 // ── Play/pause ──
@@ -1292,6 +1394,7 @@ document.getElementById('all-sessions-link').addEventListener('click', (e) => {
   history.replaceState(null, '', '/editor.html');
   wavesurfers.forEach((ws) => ws.destroy());
   wavesurfers = [];
+  markerPlugins = [];
   isPlaying = false;
   loadSessionPicker();
 });
