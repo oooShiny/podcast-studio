@@ -20,6 +20,10 @@ const { createLimiter } = require("./lib/rate-limit");
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
+// Where all mutable state lives (recordings, prep notes, settings, sessions,
+// plugin data). Defaults to the app directory, so existing deployments are
+// unchanged; set DATA_DIR to put it on a separate persistent volume.
+const DATA_ROOT = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : ROOT;
 
 const DEMO_MODE = !!process.env.DEMO_MODE;
 const DEMO_ALLOWED_ORIGIN = process.env.DEMO_ALLOWED_ORIGIN || "";
@@ -27,22 +31,23 @@ const DEMO_WIPE_INTERVAL_MINUTES = Number(process.env.DEMO_WIPE_INTERVAL_MINUTES
 const DEMO_WIPE_MAX_DEFER_CYCLES = Number(process.env.DEMO_WIPE_MAX_DEFER_CYCLES) || 3;
 
 const dirs = {
-  RECORDINGS_DIR: path.join(ROOT, "recordings"),
-  PREP_NOTES_DIR: path.join(ROOT, "prep-notes"),
-  PREP_SOURCES_DIR: path.join(ROOT, "prep-sources"),
-  SCREENSHOTS_DIR: path.join(ROOT, "screenshots"),
-  CLIPS_DIR: path.join(ROOT, "clips"),
-  BRANDING_DIR: path.join(ROOT, "branding"),
+  RECORDINGS_DIR: path.join(DATA_ROOT, "recordings"),
+  PREP_NOTES_DIR: path.join(DATA_ROOT, "prep-notes"),
+  PREP_SOURCES_DIR: path.join(DATA_ROOT, "prep-sources"),
+  SCREENSHOTS_DIR: path.join(DATA_ROOT, "screenshots"),
+  CLIPS_DIR: path.join(DATA_ROOT, "clips"),
+  BRANDING_DIR: path.join(DATA_ROOT, "branding"),
 };
 
 for (const dir of Object.values(dirs)) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-const PLUGINS_DATA_DIR = path.join(ROOT, "plugins-data");
+const PLUGINS_DATA_DIR = path.join(DATA_ROOT, "plugins-data");
 
 const ctx = {
   rootDir: ROOT,
+  dataDir: DATA_ROOT,
   dirs,
   rooms: roomsModule.rooms,
   broadcast: roomsModule.broadcast,
