@@ -239,6 +239,17 @@ whose far end is a relay (direct connections keep full quality), which bounds re
 bandwidth cost. And if a connection drops, the client restarts ICE (up to 3 attempts)
 with freshly fetched credentials instead of ending the call.
 
+### Usage alerts (Cloudflare TURN)
+
+`scripts/turn-usage-alert.js` checks your Cloudflare TURN egress and alerts at 50/80/100%
+of a monthly budget (default 1,000 GB, the free tier) and on a 24-hour spike. Run it on a
+schedule, e.g. `*/30 * * * * node scripts/turn-usage-alert.js`. It needs
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (an API token with *Account Analytics:
+Read*). Set `ALERT_WEBHOOK_URL` for Slack/Discord; without one it prints to stderr and exits
+non-zero, so cron mail or a failing CI job still notifies you. Each level alerts once per
+month, and a failed check alerts too. Tunables (`TURN_MONTHLY_BUDGET_GB`,
+`TURN_ALERT_PERCENTS`, `TURN_DAILY_ALERT_GB`) are documented at the top of the script.
+
 To verify the relay actually works, open the studio with `?relay=1` — this forces all
 media through TURN. Test from a phone on cellular, since same-network tests never
 exercise the relay.
