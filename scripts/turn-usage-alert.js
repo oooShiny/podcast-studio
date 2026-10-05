@@ -21,6 +21,8 @@
 //                            levels already fired so you aren't re-alerted every run
 //
 // Exit codes: 0 = nothing to report, 1 = alert(s) fired, 2 = couldn't check usage.
+// Same .env the server reads, so one file holds all the credentials.
+require("dotenv").config({ quiet: true });
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
