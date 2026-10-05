@@ -2346,6 +2346,90 @@ async function loadIceServers() {
   }
 }
 
+// ── Relay bitrate cap ──
+// TURN bills on data the relay sends to a client. Our outgoing video is billed
+// exactly when the *remote* end of the selected path is a relay candidate (the
+// relay then delivers it to them), so that's the condition we cap on. If we are
+// the relayed side, the other peer sees our relay as their remote candidate and
+// caps themselves. Direct connections are never touched, and when no TURN is
+// configured this never triggers at all.
+const RELAY_VIDEO_MAX_BITRATE = 500_000; // bits/s
+
+async function isRemoteRelayed(pc) {
+  const stats = await pc.getStats();
+  let pairId = null;
+  stats.forEach((r) => { if (r.type === "transport" && r.selectedCandidatePairId) pairId = r.selectedCandidatePairId; });
+  let pair = null;
+  stats.forEach((r) => {
+    if (r.type !== "candidate-pair") return;
+    // selectedCandidatePairId isn't reported everywhere; fall back to the nominated pair.
+    if (r.id === pairId || (!pairId && r.nominated && r.state === "succeeded")) pair = r;
+  });
+  const remote = pair && stats.get(pair.remoteCandidateId);
+  return remote ? remote.candidateType === "relay" : null; // null = not known yet
+}
+
+// Idempotent: sets the cap when relayed, clears it when not. Re-run periodically so
+// it follows the selected path if it changes and covers video senders added later.
+async function updateRelayCap(peerData) {
+  const pc = peerData.pc;
+  if (pc.connectionState !== "connected") return;
+  const relayed = await isRemoteRelayed(pc);
+  if (relayed === null) return;
+  const wanted = relayed ? RELAY_VIDEO_MAX_BITRATE : undefined;
+  for (const sender of pc.getSenders()) {
+    if (!sender.track || sender.track.kind !== "video") continue;
+    const params = sender.getParameters();
+    if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+    if (params.encodings[0].maxBitrate === wanted) continue;
+    if (wanted === undefined) delete params.encodings[0].maxBitrate;
+    else params.encodings[0].maxBitrate = wanted;
+    try { await sender.setParameters(params); } catch (e) { console.warn("setParameters failed:", e); }
+  }
+}
+
+// ── ICE restart ──
+// Recovers a dropped path (network change, TURN allocation moved, or relay
+// credentials expiring mid-call) without tearing the call down. Only the peer
+// that originally sent the offer restarts, so both sides never offer at once;
+// the other side asks it to via a restartIce signal.
+const ICE_RESTART_MAX_ATTEMPTS = 3;
+const ICE_DISCONNECT_GRACE_MS = 3000;
+
+function requestIceRestart(peerId) {
+  const peer = state.peers[peerId];
+  if (!peer || peer.pc.signalingState === "closed") return;
+  if (peer.iceRestarts >= ICE_RESTART_MAX_ATTEMPTS) {
+    showToast(`Connection to ${peer.username} failed`, "error");
+    return;
+  }
+  peer.iceRestarts += 1;
+  if (peer.initiator) restartIce(peerId);
+  else state.ws.send(JSON.stringify({ type: "signal", targetId: peerId, signal: { restartIce: true } }));
+}
+
+async function restartIce(peerId) {
+  const peer = state.peers[peerId];
+  if (!peer || peer.pc.signalingState === "closed") return;
+  const pc = peer.pc;
+  // An offer is already in flight (e.g. a renegotiation) — try again shortly.
+  if (pc.signalingState !== "stable") {
+    clearTimeout(peer.restartTimer);
+    peer.restartTimer = setTimeout(() => restartIce(peerId), 2000);
+    return;
+  }
+  // Relay credentials are short-lived, so pick up fresh ones before restarting.
+  await loadIceServers();
+  try { pc.setConfiguration({ ...pc.getConfiguration(), ...rtcConfig }); } catch (e) { console.warn("setConfiguration failed:", e); }
+  try {
+    const offer = await pc.createOffer({ iceRestart: true });
+    await pc.setLocalDescription(offer);
+    state.ws.send(JSON.stringify({ type: "signal", targetId: peerId, signal: { sdp: pc.localDescription } }));
+  } catch (e) {
+    console.warn("ICE restart failed:", e);
+  }
+}
+
 function createPeer(peerId, peerUsername, initiator) {
   const pc = new RTCPeerConnection(rtcConfig);
 
@@ -2354,6 +2438,10 @@ function createPeer(peerId, peerUsername, initiator) {
     username: peerUsername,
     audioEl: null,
     stream: null,
+    initiator,
+    iceRestarts: 0,
+    restartTimer: null,
+    capTimer: null,
   };
 
   state.peers[peerId] = peerData;
@@ -2432,10 +2520,19 @@ function createPeer(peerId, peerUsername, initiator) {
   };
 
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === "failed") {
-      showToast(`Connection to ${peerUsername} failed`, "error");
+    clearTimeout(peerData.restartTimer);
+    if (pc.connectionState === "connected") {
+      peerData.iceRestarts = 0;
+      updateRelayCap(peerData);
+    } else if (pc.connectionState === "disconnected") {
+      // Often self-heals; only restart if it's still down after a short grace period.
+      peerData.restartTimer = setTimeout(() => requestIceRestart(peerId), ICE_DISCONNECT_GRACE_MS);
+    } else if (pc.connectionState === "failed") {
+      requestIceRestart(peerId);
     }
   };
+  // Keep the relay cap in step with the selected path and any video senders added later.
+  peerData.capTimer = setInterval(() => updateRelayCap(peerData), 10000);
 
   // If initiator, create offer
   if (initiator) {
@@ -2467,6 +2564,12 @@ async function handlePeerSignal(fromId, signal) {
 
   const pc = peer.pc;
 
+  // The non-initiating side saw the connection drop and wants us to restart ICE.
+  if (signal.restartIce) {
+    if (peer.initiator) restartIce(fromId);
+    return;
+  }
+
   if (signal.sdp) {
     await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
     if (signal.sdp.type === "offer") {
@@ -2495,6 +2598,8 @@ function removePeer(peerId) {
   const peer = state.peers[peerId];
   if (!peer) return;
 
+  clearTimeout(peer.restartTimer);
+  clearInterval(peer.capTimer);
   peer.pc.close();
   if (peer.audioEl) {
     peer.audioEl.srcObject = null;

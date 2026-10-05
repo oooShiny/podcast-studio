@@ -234,6 +234,11 @@ Set either `TURN_KEY_ID` + `TURN_KEY_API_TOKEN` (Cloudflare Realtime TURN) or
 `GET /api/ice-servers`; with neither configured it returns STUN only. If credential
 generation fails, it also falls back to STUN rather than blocking calls.
 
+Two safeguards come with it. Outgoing video is capped at 500 kbps on connections
+whose far end is a relay (direct connections keep full quality), which bounds relay
+bandwidth cost. And if a connection drops, the client restarts ICE (up to 3 attempts)
+with freshly fetched credentials instead of ending the call.
+
 To verify the relay actually works, open the studio with `?relay=1` — this forces all
 media through TURN. Test from a phone on cellular, since same-network tests never
 exercise the relay.
