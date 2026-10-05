@@ -220,6 +220,24 @@ room, so a token from one room can't be used in another.
   `FREE_ROOM_IDLE_MINUTES`; rate limiting and same-origin CORS are on, as in `DEMO_MODE`.
 - Run it as its own deployment, separate from any demo or private instance.
 
+## TURN Relay (optional)
+
+By default peers connect directly using public STUN servers, which works for most
+networks. Some (strict corporate firewalls, certain mobile carriers) block that, and
+those users can't join. Configuring a TURN server gives the client a relay fallback;
+direct connections are still preferred, so only the connections that need it use relay
+bandwidth.
+
+Set either `TURN_KEY_ID` + `TURN_KEY_API_TOKEN` (Cloudflare Realtime TURN) or
+`TURN_URLS` + `TURN_SECRET` (self-hosted coturn with `use-auth-secret`) — see
+`.env.example`. The server hands authenticated clients short-lived credentials via
+`GET /api/ice-servers`; with neither configured it returns STUN only. If credential
+generation fails, it also falls back to STUN rather than blocking calls.
+
+To verify the relay actually works, open the studio with `?relay=1` — this forces all
+media through TURN. Test from a phone on cellular, since same-network tests never
+exercise the relay.
+
 ## HTTPS Requirement
 
 WebRTC requires HTTPS in production (except on localhost). Any deployment method above handles this — just make sure you're not trying to run plain HTTP on a public server.

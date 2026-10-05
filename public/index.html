@@ -2163,6 +2163,9 @@ document.getElementById("join-btn").addEventListener("click", async () => {
 
   setupAudioAnalysis();
 
+  // Must finish before the first peer connection is created.
+  await loadIceServers();
+
   // Connect WebSocket — joins state.room (see the ?room= URL param above)
   const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
   state.ws = new WebSocket(`${wsProto}//${location.host}`);
@@ -2318,12 +2321,30 @@ function handleRemoteMute(msg) {
 // ═══════════════════════════════════════════════
 //  WEBRTC PEER CONNECTIONS
 // ═══════════════════════════════════════════════
-const rtcConfig = {
+// Starts as plain STUN; replaced with the server's ICE config (STUN + TURN relay,
+// when configured) right after login by loadIceServers(). STUN connects most
+// peers directly — TURN is only used for networks that block direct paths.
+let rtcConfig = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
   ],
 };
+
+async function loadIceServers() {
+  try {
+    const res = await fetch("/api/ice-servers", { headers: authHeaders() });
+    if (res.ok) {
+      const { iceServers } = await res.json();
+      if (Array.isArray(iceServers) && iceServers.length) rtcConfig = { ...rtcConfig, iceServers };
+    }
+  } catch {} // keep the STUN default
+  // ?relay=1 forces all media through TURN — the only reliable way to verify the
+  // relay works, since browsers otherwise quietly pick a direct path.
+  if (new URLSearchParams(location.search).get("relay") === "1") {
+    rtcConfig = { ...rtcConfig, iceTransportPolicy: "relay" };
+  }
+}
 
 function createPeer(peerId, peerUsername, initiator) {
   const pc = new RTCPeerConnection(rtcConfig);

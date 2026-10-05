@@ -16,6 +16,7 @@ const roomsModule = require("./lib/rooms");
 const editorModule = require("./lib/editor");
 const updatesModule = require("./lib/updates");
 const freeModeModule = require("./lib/free-mode");
+const iceServersModule = require("./lib/ice-servers");
 const { loadPlugins } = require("./lib/plugin-loader");
 const { createLimiter } = require("./lib/rate-limit");
 
@@ -78,6 +79,7 @@ const coreModules = [
   editorModule,
   updatesModule,
   freeModeModule,
+  iceServersModule,
 ];
 
 for (const mod of coreModules) {
@@ -123,6 +125,7 @@ function getClientIp(req) {
 // the only thing standing between a visitor and prep/editor/admin routes.
 const FREE_API_ROUTES = new Set([
   "GET /api/studio-settings",
+  "GET /api/ice-servers",
   "POST /api/rooms",
   "POST /api/rooms/join",
   "POST /api/upload-chunk",
