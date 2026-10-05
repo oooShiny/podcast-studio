@@ -15,6 +15,7 @@ const studioSettingsModule = require("./lib/studio-settings");
 const roomsModule = require("./lib/rooms");
 const editorModule = require("./lib/editor");
 const updatesModule = require("./lib/updates");
+const freeModeModule = require("./lib/free-mode");
 const { loadPlugins } = require("./lib/plugin-loader");
 const { createLimiter } = require("./lib/rate-limit");
 
@@ -26,6 +27,11 @@ const ROOT = __dirname;
 const DATA_ROOT = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : ROOT;
 
 const DEMO_MODE = !!process.env.DEMO_MODE;
+// Public, studio-only deployment: room-scoped access, local-only recording,
+// everything else (prep, editor, settings, plugins, webhook) switched off.
+const FREE_MODE = freeModeModule.FREE_MODE;
+// Both public-facing modes get rate limiting and same-origin CORS.
+const PUBLIC_MODE = DEMO_MODE || FREE_MODE;
 const DEMO_ALLOWED_ORIGIN = process.env.DEMO_ALLOWED_ORIGIN || "";
 const DEMO_WIPE_INTERVAL_MINUTES = Number(process.env.DEMO_WIPE_INTERVAL_MINUTES) || 25;
 const DEMO_WIPE_MAX_DEFER_CYCLES = Number(process.env.DEMO_WIPE_MAX_DEFER_CYCLES) || 3;
@@ -71,13 +77,14 @@ const coreModules = [
   roomsModule,
   editorModule,
   updatesModule,
+  freeModeModule,
 ];
 
 for (const mod of coreModules) {
   if (mod.init) mod.init(ctx);
 }
 
-const plugins = loadPlugins(ctx, path.join(ROOT, "plugins"));
+const plugins = FREE_MODE ? [] : loadPlugins(ctx, path.join(ROOT, "plugins"));
 const modules = [...coreModules, ...plugins];
 
 const routes = modules.flatMap((mod) => mod.routes || []);
@@ -91,11 +98,11 @@ for (const mod of modules) {
 
 const closeHandlers = modules.map((mod) => mod.onClose).filter(Boolean);
 
-// Rate limiting only runs in DEMO_MODE — self-hosted deployments behind a
-// trusted login shouldn't have to think about it.
-const authLimiter = DEMO_MODE ? createLimiter({ windowMs: 60 * 1000, max: 10 }) : null;
-const apiLimiter = DEMO_MODE ? createLimiter({ windowMs: 60 * 1000, max: 120 }) : null;
-if (DEMO_MODE) {
+// Rate limiting only runs in DEMO_MODE / FREE_MODE — self-hosted deployments
+// behind a trusted login shouldn't have to think about it.
+const authLimiter = PUBLIC_MODE ? createLimiter({ windowMs: 60 * 1000, max: 10 }) : null;
+const apiLimiter = PUBLIC_MODE ? createLimiter({ windowMs: 60 * 1000, max: 120 }) : null;
+if (PUBLIC_MODE) {
   setInterval(() => { authLimiter.sweep(); apiLimiter.sweep(); }, 5 * 60 * 1000);
 }
 
@@ -110,8 +117,35 @@ function getClientIp(req) {
 // ═══════════════════════════════════════════════
 //  HTTP SERVER
 // ═══════════════════════════════════════════════
+
+// FREE_MODE exposes only the studio. Anything not on this list (or not a
+// plain static asset) 404s server-side, so hiding links in the UI is never
+// the only thing standing between a visitor and prep/editor/admin routes.
+const FREE_API_ROUTES = new Set([
+  "GET /api/studio-settings",
+  "POST /api/rooms",
+  "POST /api/rooms/join",
+  "POST /api/upload-chunk",
+  "POST /api/finalize",
+]);
+const FREE_BLOCKED_PAGES = new Set([
+  "/prep", "/prep.html", "/settings", "/settings.html", "/editor", "/editor.html",
+]);
+function isFreeModeAllowed(req) {
+  const url = req.url.split("?")[0];
+  if (FREE_API_ROUTES.has(`${req.method} ${url}`)) return true;
+  if (req.method === "GET" && url.startsWith("/api/branding/file/")) return true;
+  return !(url.startsWith("/api/") || url.startsWith("/plugins/") || url === "/webhook" || FREE_BLOCKED_PAGES.has(url));
+}
+
+// Only the signaling messages the studio itself uses; prep/notes/clip/game
+// messages are dropped in FREE_MODE.
+const FREE_WS_TYPES = new Set([
+  "join", "signal", "chat", "recording-control", "remote-mute", "remove-peer", "host-left",
+]);
+
 const server = http.createServer((req, res) => {
-  if (DEMO_MODE) {
+  if (PUBLIC_MODE) {
     if (DEMO_ALLOWED_ORIGIN) res.setHeader("Access-Control-Allow-Origin", DEMO_ALLOWED_ORIGIN);
     // else: no ACAO header at all — same-origin only, the safe default for a demo.
   } else {
@@ -129,9 +163,9 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (DEMO_MODE) {
+  if (PUBLIC_MODE) {
     const ip = getClientIp(req);
-    const isAuth = req.method === "POST" && req.url === "/api/auth";
+    const isAuth = req.method === "POST" && (req.url === "/api/auth" || req.url === "/api/rooms/join");
     const limiter = isAuth ? authLimiter : req.url.startsWith("/api/") ? apiLimiter : null;
     if (limiter && !limiter.check(ip)) {
       res.writeHead(429, { "Content-Type": "application/json" });
@@ -148,7 +182,19 @@ const server = http.createServer((req, res) => {
 
   if (req.method === "GET" && req.url === "/api/config") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ demoMode: DEMO_MODE, wipeIntervalMinutes: DEMO_WIPE_INTERVAL_MINUTES }));
+    res.end(JSON.stringify({ demoMode: DEMO_MODE, freeMode: FREE_MODE, wipeIntervalMinutes: DEMO_WIPE_INTERVAL_MINUTES }));
+    return;
+  }
+
+  if (FREE_MODE && !isFreeModeAllowed(req)) {
+    // The client probes /api/plugins on load; give it an empty list, not a 404.
+    if (req.method === "GET" && req.url.split("?")[0] === "/api/plugins") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end("[]");
+      return;
+    }
+    res.writeHead(404);
+    res.end("Not found");
     return;
   }
 
@@ -207,7 +253,8 @@ const server = http.createServer((req, res) => {
 // ═══════════════════════════════════════════════
 //  WEBSOCKET SIGNALING SERVER
 // ═══════════════════════════════════════════════
-const wss = new WebSocketServer({ server });
+// Free mode takes anonymous connections, so cap frame size (signaling and chat are tiny).
+const wss = new WebSocketServer({ server, maxPayload: FREE_MODE ? 64 * 1024 : undefined });
 
 wss.on("connection", (ws) => {
   const state = { currentRoom: null, currentUser: null };
@@ -216,6 +263,7 @@ wss.on("connection", (ws) => {
     let msg;
     try { msg = JSON.parse(data); } catch { return; }
 
+    if (FREE_MODE && !FREE_WS_TYPES.has(msg.type)) return;
     const handler = wsHandlers.get(msg.type);
     if (handler) handler(ws, msg, state);
   });

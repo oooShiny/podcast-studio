@@ -48,6 +48,8 @@ Edit `.env` and fill in your own values:
 | `DEMO_WIPE_MAX_DEFER_CYCLES` | No — defaults to `3` | Max consecutive wipes deferred while a room is active |
 | `DEMO_STORAGE_CAP_MB` | No — defaults to `300` | Combined size cap (clips/screenshots/branding) in `DEMO_MODE` |
 | `DEMO_ALLOWED_ORIGIN` | No | CORS allowlist for `DEMO_MODE`; same-origin only if unset |
+| `FREE_MODE` | No | Public, studio-only instance with room-scoped access and local-only recording — see [Free Studio Mode](#free-studio-mode) |
+| `FREE_MAX_ROOMS` / `FREE_MAX_PARTICIPANTS` / `FREE_ROOM_IDLE_MINUTES` | No — default `200` / `5` / `120` | Capacity limits for `FREE_MODE` |
 
 > If a role password is left unset, that role falls back to an insecure default (`host123` / `member123` / `guest`, see `lib/auth.js`). Always set your own before running anywhere beyond `localhost`.
 
@@ -204,6 +206,19 @@ Before exposing a demo publicly:
   changes.
 
 `DEMO_MODE` is entirely opt-in and changes no behavior for a normal self-hosted instance.
+
+## Free Studio Mode
+
+`FREE_MODE=1` runs a public, studio-only instance. There are no shared passwords: a
+visitor clicks **Create a room**, becomes that room's host, and shares the `?room=` link.
+Everyone else who opens the link joins as a guest. Access tokens are scoped to a single
+room, so a token from one room can't be used in another.
+
+- Prep, editor, settings, plugins, and the update webhook are switched off server-side (404).
+- Recordings are never stored on the server — each participant downloads their own.
+- Rooms are capped (`FREE_MAX_PARTICIPANTS`, default 5) and expire when empty for
+  `FREE_ROOM_IDLE_MINUTES`; rate limiting and same-origin CORS are on, as in `DEMO_MODE`.
+- Run it as its own deployment, separate from any demo or private instance.
 
 ## HTTPS Requirement
 
