@@ -89,6 +89,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const pn = (tok) => fetch(B + "/api/prep-notes", { method: "PUT", headers: { "content-type": "application/json", ...(tok ? { authorization: "Bearer " + tok } : {}) }, body: JSON.stringify({ user: "_shared", game: "g1", notes: { "n-shared": { html: "x" } } }) });
   check("prep-notes PUT unauth 401", (await pn()).status === 401);
   check("prep-notes PUT auth 200", (await pn(G)).status === 200);
+
+  // merge: true updates only the fields sent; a plain PUT still replaces.
+  const putNotes = (body) => fetch(B + "/api/prep-notes", { method: "PUT", headers: { "content-type": "application/json", authorization: "Bearer " + G }, body: JSON.stringify({ user: "_shared", game: "gm", ...body }) });
+  const getNotes = async () => (await (await fetch(B + "/api/prep-notes?user=_shared&game=gm")).json());
+  await putNotes({ title: "Merge test", notes: { a: { html: "A1" }, b: { html: "B1" } } });
+  await putNotes({ merge: true, notes: { b: { html: "B2" } } });
+  let got = await getNotes();
+  check("prep-notes merge keeps untouched fields", got.notes?.a?.html === "A1" && got.notes?.b?.html === "B2", JSON.stringify(got.notes));
+  check("prep-notes merge keeps title", got.title === "Merge test", String(got.title));
+  await putNotes({ notes: { c: { html: "C1" } } });
+  got = await getNotes();
+  check("prep-notes plain PUT replaces", !got.notes?.a && got.notes?.c?.html === "C1", JSON.stringify(got.notes));
   check("current-game PUT unauth 401", (await fetch(B + "/api/current-game", { method: "PUT", body: "{}" })).status === 401);
 
   r = await fetch(B + "/api/prep-notes", { method: "PUT", headers: { authorization: "Bearer " + G }, body: "x".repeat(3 * 1024 * 1024) }).catch((e) => ({ status: "err:" + e.message }));
