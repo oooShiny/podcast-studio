@@ -47,7 +47,7 @@ Edit `.env` and fill in your own values:
 | `DEMO_WIPE_INTERVAL_MINUTES` | No — defaults to `25` | How often `DEMO_MODE` wipes all demo data |
 | `DEMO_WIPE_MAX_DEFER_CYCLES` | No — defaults to `3` | Max consecutive wipes deferred while a room is active |
 | `DEMO_STORAGE_CAP_MB` | No — defaults to `300` | Combined size cap (clips/screenshots/branding) in `DEMO_MODE` |
-| `DEMO_ALLOWED_ORIGIN` | No | CORS allowlist for `DEMO_MODE`; same-origin only if unset |
+| `ALLOWED_ORIGIN` | No | Extra origin allowed to call the API cross-origin (CORS); same-origin only if unset, in every mode. `DEMO_ALLOWED_ORIGIN` is accepted as the old name |
 | `FREE_MODE` | No | Public, studio-only instance with room-scoped access and local-only recording — see [Free Studio Mode](#free-studio-mode) |
 | `FREE_MAX_ROOMS` / `FREE_MAX_PARTICIPANTS` / `FREE_ROOM_IDLE_MINUTES` | No — default `200` / `5` / `120` | Capacity limits for `FREE_MODE` |
 
@@ -189,7 +189,7 @@ single-shared-instance demo by setting `DEMO_MODE=1` in `.env`. This turns on:
   settings reset to defaults. A wipe is deferred (up to `DEMO_WIPE_MAX_DEFER_CYCLES` times)
   while a room is actively in use, so it won't cut off a live session.
 - **Rate limiting** — login attempts and general API traffic are capped per IP.
-- **Restrictive CORS** — no wildcard `Access-Control-Allow-Origin`; set `DEMO_ALLOWED_ORIGIN`
+- **Restrictive CORS** — no wildcard `Access-Control-Allow-Origin`; set `ALLOWED_ORIGIN`
   if your front end is served from a different origin, otherwise same-origin only.
 
 Before exposing a demo publicly:
