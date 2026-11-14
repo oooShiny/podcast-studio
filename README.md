@@ -47,7 +47,9 @@ Edit `.env` and fill in your own values:
 | `DEMO_WIPE_INTERVAL_MINUTES` | No — defaults to `25` | How often `DEMO_MODE` wipes all demo data |
 | `DEMO_WIPE_MAX_DEFER_CYCLES` | No — defaults to `3` | Max consecutive wipes deferred while a room is active |
 | `DEMO_STORAGE_CAP_MB` | No — defaults to `300` | Combined size cap (clips/screenshots/branding) in `DEMO_MODE` |
-| `DEMO_ALLOWED_ORIGIN` | No | CORS allowlist for `DEMO_MODE`; same-origin only if unset |
+| `ALLOWED_ORIGIN` | No | Extra origin allowed to call the API cross-origin (CORS); same-origin only if unset, in every mode. `DEMO_ALLOWED_ORIGIN` is accepted as the old name |
+| `FREE_MODE` | No | Public, studio-only instance with room-scoped access and local-only recording — see [Free Studio Mode](#free-studio-mode) |
+| `FREE_MAX_ROOMS` / `FREE_MAX_PARTICIPANTS` / `FREE_ROOM_IDLE_MINUTES` | No — default `200` / `5` / `120` | Capacity limits for `FREE_MODE` |
 
 > If a role password is left unset, that role falls back to an insecure default (`host123` / `member123` / `guest`, see `lib/auth.js`). Always set your own before running anywhere beyond `localhost`.
 
@@ -187,7 +189,7 @@ single-shared-instance demo by setting `DEMO_MODE=1` in `.env`. This turns on:
   settings reset to defaults. A wipe is deferred (up to `DEMO_WIPE_MAX_DEFER_CYCLES` times)
   while a room is actively in use, so it won't cut off a live session.
 - **Rate limiting** — login attempts and general API traffic are capped per IP.
-- **Restrictive CORS** — no wildcard `Access-Control-Allow-Origin`; set `DEMO_ALLOWED_ORIGIN`
+- **Restrictive CORS** — no wildcard `Access-Control-Allow-Origin`; set `ALLOWED_ORIGIN`
   if your front end is served from a different origin, otherwise same-origin only.
 
 Before exposing a demo publicly:
@@ -204,6 +206,53 @@ Before exposing a demo publicly:
   changes.
 
 `DEMO_MODE` is entirely opt-in and changes no behavior for a normal self-hosted instance.
+
+## Free Studio Mode
+
+`FREE_MODE=1` runs a public, studio-only instance. There are no shared passwords: a
+visitor clicks **Create a room**, becomes that room's host, and shares the `?room=` link.
+Everyone else who opens the link joins as a guest. Access tokens are scoped to a single
+room, so a token from one room can't be used in another.
+
+- Prep, editor, settings, plugins, and the update webhook are switched off server-side (404).
+- Recordings are never stored on the server — each participant downloads their own.
+- Rooms are capped (`FREE_MAX_PARTICIPANTS`, default 5) and expire when empty for
+  `FREE_ROOM_IDLE_MINUTES`; rate limiting and same-origin CORS are on, as in `DEMO_MODE`.
+- Run it as its own deployment, separate from any demo or private instance.
+
+## TURN Relay (optional)
+
+By default peers connect directly using public STUN servers, which works for most
+networks. Some (strict corporate firewalls, certain mobile carriers) block that, and
+those users can't join. Configuring a TURN server gives the client a relay fallback;
+direct connections are still preferred, so only the connections that need it use relay
+bandwidth.
+
+Set either `TURN_KEY_ID` + `TURN_KEY_API_TOKEN` (Cloudflare Realtime TURN) or
+`TURN_URLS` + `TURN_SECRET` (self-hosted coturn with `use-auth-secret`) — see
+`.env.example`. The server hands authenticated clients short-lived credentials via
+`GET /api/ice-servers`; with neither configured it returns STUN only. If credential
+generation fails, it also falls back to STUN rather than blocking calls.
+
+Two safeguards come with it. Outgoing video is capped at 500 kbps on connections
+whose far end is a relay (direct connections keep full quality), which bounds relay
+bandwidth cost. And if a connection drops, the client restarts ICE (up to 3 attempts)
+with freshly fetched credentials instead of ending the call.
+
+### Usage alerts (Cloudflare TURN)
+
+`scripts/turn-usage-alert.js` checks your Cloudflare TURN egress and alerts at 50/80/100%
+of a monthly budget (default 1,000 GB, the free tier) and on a 24-hour spike. Run it on a
+schedule, e.g. `*/30 * * * * node scripts/turn-usage-alert.js`. It needs
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (an API token with *Account Analytics:
+Read*). Set `ALERT_WEBHOOK_URL` for Slack/Discord; without one it prints to stderr and exits
+non-zero, so cron mail or a failing CI job still notifies you. Each level alerts once per
+month, and a failed check alerts too. Tunables (`TURN_MONTHLY_BUDGET_GB`,
+`TURN_ALERT_PERCENTS`, `TURN_DAILY_ALERT_GB`) are documented at the top of the script.
+
+To verify the relay actually works, open the studio with `?relay=1` — this forces all
+media through TURN. Test from a phone on cellular, since same-network tests never
+exercise the relay.
 
 ## HTTPS Requirement
 

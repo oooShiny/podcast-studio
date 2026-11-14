@@ -4,7 +4,8 @@
   "description": "Minimal browser-based podcast recording studio",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node test/server.test.js"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

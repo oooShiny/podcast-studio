@@ -1404,27 +1404,44 @@
     <h1 class="lobby-title" id="lobby-title">Podcast Studio</h1>
     <p class="lobby-sub">Browser-based recording — no install needed</p>
 
-    <div class="field">
+    <!-- Free mode, no ?room= yet: just offer to create one -->
+    <div id="free-create" style="display:none; margin-bottom:1rem;">
+      <button class="btn btn-primary" id="create-room-btn" style="width:100%;">Create a room</button>
+      <div style="font-size:0.8rem; color:var(--text-dim); margin-top:0.5rem;">You'll get a link to share with your guests.</div>
+    </div>
+
+    <!-- Free mode, inside a room: shows the link to share -->
+    <div id="free-room-info" style="display:none; margin-bottom:1rem; font-size:0.8rem; color:var(--text-dim);">
+      Share this link to invite others:
+      <input type="text" id="free-room-link" readonly style="margin-top:0.35rem;" onclick="this.select()" />
+      <div id="free-host-info" style="display:none; margin-top:0.75rem;">
+        <strong style="color:var(--accent);">Your private host link — save it, don't share it.</strong>
+        Opening it on any device makes you the host of this room.
+        <input type="text" id="free-host-link" readonly style="margin-top:0.35rem;" onclick="this.select()" />
+      </div>
+    </div>
+
+    <div class="field" id="name-field">
       <label>Your Name</label>
       <input type="text" id="username" placeholder="e.g. Andy" maxlength="30" />
     </div>
 
-    <div class="field">
+    <div class="field" id="password-field">
       <label>Password</label>
       <input type="password" id="password" placeholder="Enter session password" />
     </div>
 
-    <div class="field">
+    <div class="field" data-lobby-media>
       <label>Microphone</label>
       <select id="mic-select"><option>Loading…</option></select>
     </div>
 
-    <div class="field">
+    <div class="field" data-lobby-media>
       <label>Speaker / Output</label>
       <select id="speaker-select"><option value="">Default</option></select>
     </div>
 
-    <div class="field">
+    <div class="field" data-lobby-media>
       <label>Camera (optional)</label>
       <select id="cam-select"><option value="">No camera</option></select>
     </div>
@@ -1432,7 +1449,7 @@
     <div id="auth-error" style="color:var(--accent); font-size:0.85rem; margin-bottom:0.5rem; display:none;"></div>
 
     <button class="btn btn-primary" id="join-btn" disabled>Join Studio</button>
-    <div style="display: flex; justify-content: space-between; padding-top: 1rem;">
+    <div id="lobby-links" style="display: flex; justify-content: space-between; padding-top: 1rem;">
         <a href="/prep" class="btn btn-secondary">Episode Prep →</a>
         <a href="/settings" class="btn btn-secondary">Studio Settings →</a>
     </div>
@@ -1669,8 +1686,13 @@ const state = {
   mixChunkIndex: 0,       // chunk counter for mix track
   uploadedCount: 0,
   uploadFailedCount: 0,
+  uploadStalled: false,   // true while a chunk keeps failing (shown in the status pill)
+  take: null,             // { sessionId, participantId } of the take being recorded
+  stopping: null,         // promise that settles when the recorders have fully stopped
   // Demo mode
   demoMode: false,
+  // Free mode: public studio-only deployment, access is a room-scoped token
+  freeMode: false,
   wipeIntervalMinutes: 25,
 };
 
@@ -1678,6 +1700,35 @@ const state = {
 // "role" field — the server now verifies role from this token instead.
 function authHeaders() {
   return state.token ? { Authorization: `Bearer ${state.token}` } : {};
+}
+
+// Everything interpolated into innerHTML that came from another person
+// (usernames, clip names, filenames) goes through this first.
+function escHtml(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// Prep notes are rich text written by other people, so they are rendered as
+// HTML — but only formatting survives. Scripts, embeds, event handlers and
+// javascript: links are removed before the markup touches the page.
+const NOTE_FORBIDDEN_TAGS = "script,style,iframe,frame,object,embed,link,meta,base,form,input,button,textarea,select,svg,math,template,noscript";
+function sanitizeNoteHtml(html) {
+  const doc = new DOMParser().parseFromString(`<body>${String(html ?? "")}</body>`, "text/html");
+  doc.body.querySelectorAll(NOTE_FORBIDDEN_TAGS).forEach((el) => el.remove());
+  doc.body.querySelectorAll("*").forEach((el) => {
+    for (const attr of [...el.attributes]) {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.replace(/[\u0000-\u0020]/g, "").toLowerCase();
+      const isUrlAttr = name === "href" || name === "src" || name === "xlink:href" || name === "action" || name === "formaction";
+      if (name.startsWith("on") || name === "srcdoc" || name === "style" ||
+          (isUrlAttr && /^(javascript|vbscript|data:text\/html)/.test(value))) {
+        el.removeAttribute(attr.name);
+      }
+    }
+    if (el.tagName === "A") { el.setAttribute("target", "_blank"); el.setAttribute("rel", "noopener noreferrer"); }
+  });
+  return doc.body.innerHTML;
 }
 
 // ═══════════════════════════════════════════════
@@ -1764,6 +1815,7 @@ function applyTabVisibility(disabledTabs) {
   const disabled = new Set(disabledTabs || []);
   if (state.role === "guest" && studioSettings.guestChatTab === false) disabled.add("notes");
   if (state.role === "member" && studioSettings.memberChatTab === false) disabled.add("notes");
+  if (state.freeMode) { disabled.add("prepnotes"); disabled.add("screenshots"); }
   let activeWasHidden = false;
   document.querySelectorAll(".sidebar-tab").forEach((tab) => {
     if (!disabled.has(tab.dataset.tab)) { tab.style.display = ""; return; }
@@ -1794,10 +1846,79 @@ async function loadConfig() {
     if (!res.ok) return;
     const cfg = await res.json();
     state.demoMode = !!cfg.demoMode;
+    state.freeMode = !!cfg.freeMode;
     state.wipeIntervalMinutes = cfg.wipeIntervalMinutes || 25;
     if (state.demoMode) initDemoMode();
+    if (state.freeMode) initFreeMode();
   } catch {}
 }
+
+// ═══════════════════════════════════════════════
+//  FREE MODE — studio-only, room-scoped access
+// ═══════════════════════════════════════════════
+const hasRoomParam = new URLSearchParams(location.search).has("room");
+const roomTokenKey = () => `podcast-studio-room-token-${state.room}`;
+const hostKeyKey = () => `podcast-studio-room-hostkey-${state.room}`;
+
+// The host link carries ?host=<key>. Move the key into localStorage and strip it
+// from the address bar right away so it doesn't linger in screenshots/history.
+// (It's kept in storage, not just memory, so a refresh before joining still works.)
+function captureHostKey() {
+  const params = new URLSearchParams(location.search);
+  const key = params.get("host");
+  if (!key) return;
+  try { localStorage.setItem(hostKeyKey(), key); } catch {}
+  params.delete("host");
+  const qs = params.toString();
+  history.replaceState(null, "", location.pathname + (qs ? `?${qs}` : ""));
+}
+function getHostKey() {
+  try { return localStorage.getItem(hostKeyKey()) || ""; } catch { return ""; }
+}
+if (hasRoomParam) captureHostKey();
+
+function initFreeMode() {
+  // No shared password, and no prep/settings to link to.
+  document.getElementById("password-field").style.display = "none";
+  document.getElementById("lobby-links").style.display = "none";
+  // Studio-only: Prep Notes and Screenshots need server APIs that don't exist here.
+  applyTabVisibility(studioSettings.disabledTabs);
+
+  if (!hasRoomParam) {
+    // Landing: nothing to join yet, so offer to create a room instead.
+    document.getElementById("free-create").style.display = "";
+    for (const id of ["name-field", "join-btn", "auth-error"]) document.getElementById(id).style.display = "none";
+    document.querySelectorAll("[data-lobby-media]").forEach((el) => (el.style.display = "none"));
+    return;
+  }
+  const link = document.getElementById("free-room-link");
+  link.value = `${location.origin}/?room=${encodeURIComponent(state.room)}`;
+  document.getElementById("free-room-info").style.display = "";
+  const hostKey = getHostKey();
+  if (hostKey) {
+    document.getElementById("free-host-link").value = `${location.origin}/?room=${encodeURIComponent(state.room)}&host=${encodeURIComponent(hostKey)}`;
+    document.getElementById("free-host-info").style.display = "";
+  }
+}
+
+document.getElementById("create-room-btn").addEventListener("click", async () => {
+  const btn = document.getElementById("create-room-btn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/rooms", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Could not create room");
+    // Keep the host token so this browser comes back as host after the redirect/refresh.
+    try {
+      localStorage.setItem(`podcast-studio-room-token-${data.room}`, data.token);
+      localStorage.setItem(`podcast-studio-room-hostkey-${data.room}`, data.hostKey);
+    } catch {}
+    location.href = `/?room=${encodeURIComponent(data.room)}`;
+  } catch (e) {
+    showToast(e.message, "error");
+    btn.disabled = false;
+  }
+});
 
 function initDemoMode() {
   document.body.classList.add("demo-mode-active");
@@ -1896,12 +2017,15 @@ async function enumerateDevices() {
 // can tell it apart from a real, manual submission — see comment at its read site.
 let autoLoginInFlight = false;
 
+// Older versions kept the studio password here in plain text. It is no longer
+// stored at all — a refresh resumes with the (expiring) session token instead.
+try { localStorage.removeItem("podcast-studio-password"); } catch {}
+
 enumerateDevices().then(() => {
   const su = localStorage.getItem("podcast-studio-username");
-  const sp = localStorage.getItem("podcast-studio-password");
+  const st = localStorage.getItem("podcast-studio-token");
   const joinBtn = document.getElementById("join-btn");
-  if (su && sp && joinBtn && !joinBtn.disabled) {
-    document.getElementById("password").value = sp;
+  if (su && st && !state.freeMode && joinBtn && !joinBtn.disabled) {
     autoLoginInFlight = true;
     joinBtn.click();
   }
@@ -1942,8 +2066,8 @@ function showLobbyRecordings() {
     const size = rec.size ? `${(rec.size / (1024 * 1024)).toFixed(1)} MB` : "";
     item.innerHTML = `
       <div>
-        <span style="font-size:0.85rem">${rec.name}</span><br/>
-        <span class="dl-meta">${rec.date || ""} ${size ? "· " + size : ""}</span>
+        <span style="font-size:0.85rem">${escHtml(rec.name)}</span><br/>
+        <span class="dl-meta">${escHtml(rec.date || "")} ${size ? "· " + size : ""}</span>
       </div>
       <div style="display:flex; gap:0.5rem;">
         <a href="#" class="lobby-dl-link" data-idx="${i}" style="color:var(--accent); text-decoration:none; font-weight:600; font-size:0.82rem;">Download</a>
@@ -1981,7 +2105,16 @@ showLobbyRecordings();
 // ═══════════════════════════════════════════════
 //  JOIN WITH PASSWORD AUTH
 // ═══════════════════════════════════════════════
+let joinInFlight = false;
 document.getElementById("join-btn").addEventListener("click", async () => {
+  // A second click while the first is still waiting on the mic/server would
+  // join the room twice from one tab.
+  if (joinInFlight || state.ws) return;
+  joinInFlight = true;
+  try { await joinStudio(); } finally { joinInFlight = false; }
+});
+
+async function joinStudio() {
   // Capture and reset immediately — this click may be the automatic saved-credentials
   // one fired by the enumerateDevices().then() block above, or a real user click.
   const isAutoLogin = autoLoginInFlight;
@@ -1992,30 +2125,42 @@ document.getElementById("join-btn").addEventListener("click", async () => {
   const authError = document.getElementById("auth-error");
   authError.style.display = "none";
 
-  if (!username || !password) {
-    authError.textContent = "Name and password are required";
+  if (!username || (!password && !state.freeMode && !isAutoLogin)) {
+    authError.textContent = state.freeMode ? "Name is required" : "Name and password are required";
     authError.style.display = "block";
     return;
   }
 
   // Authenticate with server
   try {
-    const authRes = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    const authData = await authRes.json();
+    // Free mode: exchange the room ID (plus a stored host token, if this browser
+    // created the room) for a room-scoped token. No password involved.
+    let storedRoomToken = "";
+    if (state.freeMode) { try { storedRoomToken = localStorage.getItem(roomTokenKey()) || ""; } catch {} }
+    let authRes;
+    let authData;
+    if (isAutoLogin && !state.freeMode) {
+      // Page refresh: check the stored session token is still good rather
+      // than re-sending a password.
+      const storedToken = localStorage.getItem("podcast-studio-token") || "";
+      authRes = await fetch("/api/auth/session", { headers: { Authorization: `Bearer ${storedToken}` } });
+      authData = authRes.ok ? { ...(await authRes.json()), token: storedToken } : { ok: false };
+    } else {
+      authRes = await fetch(state.freeMode ? "/api/rooms/join" : "/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.freeMode ? { room: state.room, token: storedRoomToken, hostKey: getHostKey() || undefined } : { password }),
+      });
+      authData = await authRes.json();
+    }
 
     if (!authData.ok) {
       if (isAutoLogin) {
-        // The saved password no longer works (e.g. it was rotated) — clear it instead
-        // of leaving it sitting in the field, where a user retrying "their" password
-        // would actually keep resubmitting this stale one without realizing it.
-        localStorage.removeItem("podcast-studio-password");
-        document.getElementById("password").value = "";
+        // The saved session expired — drop it and wait for the user to sign in.
+        localStorage.removeItem("podcast-studio-token");
       } else {
-        authError.textContent = authData.error || "Invalid password";
+        if (state.freeMode && authRes.status === 403) { try { localStorage.removeItem(hostKeyKey()); } catch {} }
+        authError.textContent = authData.error || (state.freeMode ? "Could not join room" : "Invalid password");
         authError.style.display = "block";
       }
       return;
@@ -2024,6 +2169,7 @@ document.getElementById("join-btn").addEventListener("click", async () => {
     state.role = authData.role;
     state.token = authData.token;
   } catch (e) {
+    if (isAutoLogin) return; // silent — the lobby is still there to sign in from
     authError.textContent = "Could not connect to server";
     authError.style.display = "block";
     return;
@@ -2033,8 +2179,13 @@ document.getElementById("join-btn").addEventListener("click", async () => {
 
   // Save credentials for auto-reconnect on refresh
   localStorage.setItem("podcast-studio-username", username);
-  localStorage.setItem("podcast-studio-password", password);
-  localStorage.setItem("podcast-studio-token", state.token);
+  if (state.freeMode) {
+    try { localStorage.setItem(roomTokenKey(), state.token); } catch {}
+  } else {
+    localStorage.setItem("podcast-studio-token", state.token);
+    localStorage.setItem("podcast-studio-role", state.role);
+  }
+  document.getElementById("password").value = "";
 
   // Acquire media
   const micId = document.getElementById("mic-select").value;
@@ -2065,19 +2216,11 @@ document.getElementById("join-btn").addEventListener("click", async () => {
 
   setupAudioAnalysis();
 
+  // Must finish before the first peer connection is created.
+  await loadIceServers();
+
   // Connect WebSocket — joins state.room (see the ?room= URL param above)
-  const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
-  state.ws = new WebSocket(`${wsProto}//${location.host}`);
-
-  state.ws.onopen = () => {
-    state.ws.send(JSON.stringify({ type: "join", room: state.room, username, token: state.token }));
-  };
-
-  state.ws.onmessage = (e) => handleSignal(JSON.parse(e.data));
-
-  state.ws.onclose = () => {
-    showToast("Disconnected from server", "error");
-  };
+  connectSignaling();
 
   // Show studio
   document.getElementById("lobby").style.display = "none";
@@ -2090,13 +2233,13 @@ document.getElementById("join-btn").addEventListener("click", async () => {
   if (recordBtn) recordBtn.style.display = state.role === "host" ? "" : "none";
   const markerBtn = document.getElementById("marker-btn");
   if (markerBtn) markerBtn.style.display = state.role === "host" ? "" : "none";
-  PSNavHeader.render(document.getElementById("ps-nav-header"), { current: "studio", role: state.role });
+  if (!state.freeMode) PSNavHeader.render(document.getElementById("ps-nav-header"), { current: "studio", role: state.role });
 
   // Re-apply tab visibility now that role is known (guest/member chat tab gating)
   applyTabVisibility(studioSettings.disabledTabs);
 
   // Remove host-only sidebar sections from DOM for non-hosts
-  if (state.role !== "host") {
+  if (state.role !== "host" || state.freeMode) {
     document.getElementById("server-library-section")?.remove();
     document.getElementById("save-to-server-section")?.remove();
     document.getElementById("clip-routing-section")?.remove();
@@ -2105,8 +2248,67 @@ document.getElementById("join-btn").addEventListener("click", async () => {
   addParticipantTile(null, username, true);
 
   // Auto-load the current prep game for this user
-  window._prepNotesAutoLoad?.();
-});
+  if (!state.freeMode) window._prepNotesAutoLoad?.();
+}
+
+// ═══════════════════════════════════════════════
+//  SIGNALING CONNECTION (auto-reconnecting)
+// ═══════════════════════════════════════════════
+// A dropped socket used to leave the studio silently dead until a refresh.
+// Now it reconnects with backoff and re-joins the room. Any take in progress
+// keeps recording locally and uploading over HTTP the whole time.
+let signalingReconnects = 0;
+let signalingTimer = null;
+
+function connectSignaling() {
+  clearTimeout(signalingTimer);
+  const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+  const ws = new WebSocket(`${wsProto}//${location.host}`);
+  state.ws = ws;
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: "join", room: state.room, username: state.username, token: state.token }));
+  };
+
+  ws.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+    if (msg && typeof msg === "object") handleSignal(msg);
+  };
+
+  ws.onerror = () => {}; // onclose always follows and does the work
+
+  ws.onclose = () => {
+    if (state.ws !== ws) return; // superseded, or closed on purpose
+    // Peer ids don't survive a reconnect: drop every peer connection and let
+    // the fresh room-info rebuild them.
+    for (const id of Object.keys(state.peers)) removePeer(id);
+    if (signalingReconnects === 0) showToast("Connection lost — reconnecting…", "error");
+    const delay = Math.min(1000 * 2 ** signalingReconnects, 15000);
+    signalingReconnects += 1;
+    signalingTimer = setTimeout(connectSignaling, delay);
+  };
+}
+
+// Closes the socket for good (leaving, removed, session ended) — no reconnect.
+// Sends if the socket is open; quietly drops the message otherwise (a
+// reconnect rebuilds peer state from scratch anyway). Returns whether it sent.
+function sendSignaling(msg) {
+  return wsSend(JSON.stringify(msg));
+}
+
+function wsSend(data) {
+  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return false;
+  state.ws.send(data);
+  return true;
+}
+
+function closeSignaling() {
+  clearTimeout(signalingTimer);
+  const ws = state.ws;
+  state.ws = null;
+  if (ws) { ws.onclose = null; try { ws.close(); } catch {} }
+}
 
 // ═══════════════════════════════════════════════
 //  NAVIGATION GUARD
@@ -2121,16 +2323,43 @@ function handleBeforeUnload(e) {
 // ═══════════════════════════════════════════════
 function handleSignal(msg) {
   switch (msg.type) {
-    case "room-info":
+    case "join-error":
+      // Server refused the join (room full, expired, or token for another room).
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      showToast(msg.error || "Could not join room", "error");
+      if (state.isRecording || state.recordings.length > 0) {
+        // Never navigate away from audio that only exists in this tab.
+        leaveStudio({ notifyHost: false });
+        break;
+      }
+      closeSignaling();
+      setTimeout(() => (location.href = "/"), 2500);
+      break;
+
+    case "room-info": {
+      const rejoined = signalingReconnects > 0;
+      signalingReconnects = 0;
       state.myId = msg.yourId;
       state.isHost = state.role === "host";
-      if (state.isHost) {
+      if (rejoined) {
+        showToast("Reconnected", "success");
+        // The host may have stopped the take while we were offline.
+        // Trust "no take running" only if the server was up for our whole
+        // take — a restarted server has simply forgotten it.
+        const takeAgeMs = state.recordStart ? Date.now() - state.recordStart : 0;
+        const serverKnows = msg.recording
+          ? msg.recording.sessionId !== state.sessionId
+          : msg.recording === null && msg.uptimeMs > takeAgeMs + 5000;
+        if (state.isRecording && !state.isHost && serverKnows) stopRecording();
+      } else if (state.isHost) {
         showToast("You are the session host", "info");
       }
       for (const p of msg.participants) {
         createPeer(p.id, p.username, true);
+        if (state.peers[p.id]) state.peers[p.id].role = p.role;
       }
       break;
+    }
 
     case "peer-joined":
       createPeer(msg.id, msg.username, false);
@@ -2153,7 +2382,8 @@ function handleSignal(msg) {
       break;
 
     case "game-load":
-      handleRemoteGameLoad(msg);
+      // Only defined when a plugin provides it.
+      if (typeof window.handleRemoteGameLoad === "function") window.handleRemoteGameLoad(msg);
       break;
 
     case "remote-mute":
@@ -2169,26 +2399,13 @@ function handleSignal(msg) {
       break;
 
     case "you-were-removed":
-      window.removeEventListener("beforeunload", handleBeforeUnload);
       showToast("You were removed from the session by the host", "error");
-      if (state.localStream) state.localStream.getTracks().forEach((t) => t.stop());
-      for (const [id] of Object.entries(state.peers)) removePeer(id);
-      if (state.ws) { state.ws.onclose = null; state.ws.close(); }
-      document.getElementById("studio").classList.remove("active");
-      document.getElementById("lobby").style.display = "flex";
-      showLobbyRecordings();
+      leaveStudio({ notifyHost: false });
       break;
 
     case "session-ended":
-      window.removeEventListener("beforeunload", handleBeforeUnload);
       showToast("The host has ended the session", "error");
-      if (state.isRecording) stopRecording();
-      if (state.localStream) state.localStream.getTracks().forEach((t) => t.stop());
-      for (const [id] of Object.entries(state.peers)) removePeer(id);
-      if (state.ws) { state.ws.onclose = null; state.ws.close(); }
-      document.getElementById("studio").classList.remove("active");
-      document.getElementById("lobby").style.display = "flex";
-      showLobbyRecordings();
+      leaveStudio({ notifyHost: false });
       break;
 
     case "studio-settings-update":
@@ -2212,12 +2429,114 @@ function handleRemoteMute(msg) {
 // ═══════════════════════════════════════════════
 //  WEBRTC PEER CONNECTIONS
 // ═══════════════════════════════════════════════
-const rtcConfig = {
+// Starts as plain STUN; replaced with the server's ICE config (STUN + TURN relay,
+// when configured) right after login by loadIceServers(). STUN connects most
+// peers directly — TURN is only used for networks that block direct paths.
+let rtcConfig = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
   ],
 };
+
+async function loadIceServers() {
+  try {
+    const res = await fetch("/api/ice-servers", { headers: authHeaders() });
+    if (res.ok) {
+      const { iceServers } = await res.json();
+      if (Array.isArray(iceServers) && iceServers.length) rtcConfig = { ...rtcConfig, iceServers };
+    }
+  } catch {} // keep the STUN default
+  // ?relay=1 forces all media through TURN — the only reliable way to verify the
+  // relay works, since browsers otherwise quietly pick a direct path.
+  if (new URLSearchParams(location.search).get("relay") === "1") {
+    rtcConfig = { ...rtcConfig, iceTransportPolicy: "relay" };
+  }
+}
+
+// ── Relay bitrate cap ──
+// TURN bills on data the relay sends to a client. Our outgoing video is billed
+// exactly when the *remote* end of the selected path is a relay candidate (the
+// relay then delivers it to them), so that's the condition we cap on. If we are
+// the relayed side, the other peer sees our relay as their remote candidate and
+// caps themselves. Direct connections are never touched, and when no TURN is
+// configured this never triggers at all.
+const RELAY_VIDEO_MAX_BITRATE = 500_000; // bits/s
+
+async function isRemoteRelayed(pc) {
+  const stats = await pc.getStats();
+  let pairId = null;
+  stats.forEach((r) => { if (r.type === "transport" && r.selectedCandidatePairId) pairId = r.selectedCandidatePairId; });
+  let pair = null;
+  stats.forEach((r) => {
+    if (r.type !== "candidate-pair") return;
+    // selectedCandidatePairId isn't reported everywhere; fall back to the nominated pair.
+    if (r.id === pairId || (!pairId && r.nominated && r.state === "succeeded")) pair = r;
+  });
+  const remote = pair && stats.get(pair.remoteCandidateId);
+  return remote ? remote.candidateType === "relay" : null; // null = not known yet
+}
+
+// Idempotent: sets the cap when relayed, clears it when not. Re-run periodically so
+// it follows the selected path if it changes and covers video senders added later.
+async function updateRelayCap(peerData) {
+  const pc = peerData.pc;
+  if (pc.connectionState !== "connected") return;
+  const relayed = await isRemoteRelayed(pc);
+  if (relayed === null) return;
+  const wanted = relayed ? RELAY_VIDEO_MAX_BITRATE : undefined;
+  for (const sender of pc.getSenders()) {
+    if (!sender.track || sender.track.kind !== "video") continue;
+    const params = sender.getParameters();
+    if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+    if (params.encodings[0].maxBitrate === wanted) continue;
+    if (wanted === undefined) delete params.encodings[0].maxBitrate;
+    else params.encodings[0].maxBitrate = wanted;
+    try { await sender.setParameters(params); } catch (e) { console.warn("setParameters failed:", e); }
+  }
+}
+
+// ── ICE restart ──
+// Recovers a dropped path (network change, TURN allocation moved, or relay
+// credentials expiring mid-call) without tearing the call down. Only the peer
+// that originally sent the offer restarts, so both sides never offer at once;
+// the other side asks it to via a restartIce signal.
+const ICE_RESTART_MAX_ATTEMPTS = 3;
+const ICE_DISCONNECT_GRACE_MS = 3000;
+
+function requestIceRestart(peerId) {
+  const peer = state.peers[peerId];
+  if (!peer || peer.pc.signalingState === "closed") return;
+  if (peer.iceRestarts >= ICE_RESTART_MAX_ATTEMPTS) {
+    showToast(`Connection to ${peer.username} failed`, "error");
+    return;
+  }
+  peer.iceRestarts += 1;
+  if (peer.initiator) restartIce(peerId);
+  else sendSignaling({ type: "signal", targetId: peerId, signal: { restartIce: true } });
+}
+
+async function restartIce(peerId) {
+  const peer = state.peers[peerId];
+  if (!peer || peer.pc.signalingState === "closed") return;
+  const pc = peer.pc;
+  // An offer is already in flight (e.g. a renegotiation) — try again shortly.
+  if (pc.signalingState !== "stable") {
+    clearTimeout(peer.restartTimer);
+    peer.restartTimer = setTimeout(() => restartIce(peerId), 2000);
+    return;
+  }
+  // Relay credentials are short-lived, so pick up fresh ones before restarting.
+  await loadIceServers();
+  try { pc.setConfiguration({ ...pc.getConfiguration(), ...rtcConfig }); } catch (e) { console.warn("setConfiguration failed:", e); }
+  try {
+    const offer = await pc.createOffer({ iceRestart: true });
+    await pc.setLocalDescription(offer);
+    wsSend(JSON.stringify({ type: "signal", targetId: peerId, signal: { sdp: pc.localDescription } }));
+  } catch (e) {
+    console.warn("ICE restart failed:", e);
+  }
+}
 
 function createPeer(peerId, peerUsername, initiator) {
   const pc = new RTCPeerConnection(rtcConfig);
@@ -2227,6 +2546,10 @@ function createPeer(peerId, peerUsername, initiator) {
     username: peerUsername,
     audioEl: null,
     stream: null,
+    initiator,
+    iceRestarts: 0,
+    restartTimer: null,
+    capTimer: null,
   };
 
   state.peers[peerId] = peerData;
@@ -2294,7 +2617,7 @@ function createPeer(peerId, peerUsername, initiator) {
   // ICE candidates
   pc.onicecandidate = (e) => {
     if (e.candidate) {
-      state.ws.send(
+      wsSend(
         JSON.stringify({
           type: "signal",
           targetId: peerId,
@@ -2305,17 +2628,26 @@ function createPeer(peerId, peerUsername, initiator) {
   };
 
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === "failed") {
-      showToast(`Connection to ${peerUsername} failed`, "error");
+    clearTimeout(peerData.restartTimer);
+    if (pc.connectionState === "connected") {
+      peerData.iceRestarts = 0;
+      updateRelayCap(peerData);
+    } else if (pc.connectionState === "disconnected") {
+      // Often self-heals; only restart if it's still down after a short grace period.
+      peerData.restartTimer = setTimeout(() => requestIceRestart(peerId), ICE_DISCONNECT_GRACE_MS);
+    } else if (pc.connectionState === "failed") {
+      requestIceRestart(peerId);
     }
   };
+  // Keep the relay cap in step with the selected path and any video senders added later.
+  peerData.capTimer = setInterval(() => updateRelayCap(peerData), 10000);
 
   // If initiator, create offer
   if (initiator) {
     pc.createOffer()
       .then((offer) => pc.setLocalDescription(offer))
       .then(() => {
-        state.ws.send(
+        wsSend(
           JSON.stringify({
             type: "signal",
             targetId: peerId,
@@ -2340,12 +2672,18 @@ async function handlePeerSignal(fromId, signal) {
 
   const pc = peer.pc;
 
+  // The non-initiating side saw the connection drop and wants us to restart ICE.
+  if (signal.restartIce) {
+    if (peer.initiator) restartIce(fromId);
+    return;
+  }
+
   if (signal.sdp) {
     await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
     if (signal.sdp.type === "offer") {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      state.ws.send(
+      wsSend(
         JSON.stringify({
           type: "signal",
           targetId: fromId,
@@ -2368,6 +2706,8 @@ function removePeer(peerId) {
   const peer = state.peers[peerId];
   if (!peer) return;
 
+  clearTimeout(peer.restartTimer);
+  clearInterval(peer.capTimer);
   peer.pc.close();
   if (peer.audioEl) {
     peer.audioEl.srcObject = null;
@@ -2420,13 +2760,13 @@ function addParticipantTile(peerId, username, isLocal, stream) {
   const showMuteBtn = state.isHost && !isLocal;
 
   tile.innerHTML = `
-    <div class="participant-avatar">${initials}</div>
+    <div class="participant-avatar">${escHtml(initials)}</div>
     <video autoplay playsinline ${isLocal ? "muted" : ""}></video>
     <div class="participant-name">
-      ${username}${isLocal ? '<span class="you-badge">(you)</span>' : ""}
+      ${escHtml(username)}${isLocal ? '<span class="you-badge">(you)</span>' : ""}
     </div>
-    ${showMuteBtn ? `<button class="tile-mute-btn" data-peer-id="${peerId}" title="Mute ${username}" style="position:absolute;top:0.5rem;right:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.7rem;cursor:pointer;opacity:0;transition:opacity 0.2s;">🎙️</button>` : ""}
-    ${showMuteBtn ? `<button class="tile-remove-btn" data-peer-id="${peerId}" title="Remove ${username}" style="position:absolute;top:0.5rem;left:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.75rem;cursor:pointer;opacity:0;transition:opacity 0.2s;">✕</button>` : ""}
+    ${showMuteBtn ? `<button class="tile-mute-btn" data-peer-id="${escHtml(peerId)}" title="Mute ${escHtml(username)}" style="position:absolute;top:0.5rem;right:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.7rem;cursor:pointer;opacity:0;transition:opacity 0.2s;">🎙️</button>` : ""}
+    ${showMuteBtn ? `<button class="tile-remove-btn" data-peer-id="${escHtml(peerId)}" title="Remove ${escHtml(username)}" style="position:absolute;top:0.5rem;left:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.75rem;cursor:pointer;opacity:0;transition:opacity 0.2s;">✕</button>` : ""}
     <div class="audio-meter" id="meter-${tileId}">
       <div class="meter-bar"></div>
       <div class="meter-bar"></div>
@@ -2453,7 +2793,7 @@ function addParticipantTile(peerId, username, isLocal, stream) {
       peerMuted = !peerMuted;
       muteBtn.textContent = peerMuted ? "🔇" : "🎙️";
       muteBtn.style.background = peerMuted ? "var(--accent)" : "var(--surface-2)";
-      state.ws.send(JSON.stringify({
+      wsSend(JSON.stringify({
         type: "remote-mute",
         targetId: peerId,
         muted: peerMuted,
@@ -2461,7 +2801,7 @@ function addParticipantTile(peerId, username, isLocal, stream) {
     });
     removeBtn.addEventListener("click", () => {
       if (!confirm(`Remove ${username} from the session?`)) return;
-      state.ws.send(JSON.stringify({
+      wsSend(JSON.stringify({
         type: "remove-peer",
         targetId: peerId,
       }));
@@ -2610,37 +2950,43 @@ function enqueueChunk(blob, meta) {
   processUploadQueue();
 }
 
+// A chunk is only ever dropped when the server says it will never accept it
+// (bad request / too large). Network errors, 5xx and expired sessions are
+// retried for as long as the tab is open, so a flaky connection delays the
+// server copy instead of punching holes in it.
 async function processUploadQueue() {
   if (state.uploading || state.uploadQueue.length === 0) return;
   state.uploading = true;
 
   while (state.uploadQueue.length > 0) {
     const item = state.uploadQueue[0];
-    const success = await uploadChunk(item.blob, item.meta);
+    const result = await uploadChunk(item.blob, item.meta);
 
-    if (success) {
+    if (result === "ok") {
       state.uploadQueue.shift();
       state.uploadedCount++;
+      state.uploadStalled = false;
       updateUploadStatus();
+    } else if (result === "rejected") {
+      state.uploadQueue.shift();
+      state.uploadFailedCount++;
+      updateUploadStatus();
+      console.warn(`Server rejected chunk ${item.meta.chunkIndex}`);
     } else {
       item.retries++;
-      if (item.retries >= 5) {
-        // Give up on this chunk after 5 retries
-        state.uploadQueue.shift();
-        state.uploadFailedCount++;
+      if (item.retries >= 3 && !state.uploadStalled) {
+        state.uploadStalled = true;
         updateUploadStatus();
-        console.warn(`Gave up on chunk ${item.meta.chunkIndex} after 5 retries`);
-      } else {
-        // Wait with exponential backoff before retrying
-        const delay = Math.min(1000 * Math.pow(2, item.retries), 10000);
-        await sleep(delay);
       }
+      // Exponential backoff, capped
+      await sleep(Math.min(1000 * Math.pow(2, item.retries), 15000));
     }
   }
 
   state.uploading = false;
 }
 
+// Returns "ok", "rejected" (permanent — don't retry) or "retry".
 async function uploadChunk(blob, meta) {
   try {
     // Send as: JSON metadata line + \n + binary audio data
@@ -2658,36 +3004,55 @@ async function uploadChunk(blob, meta) {
       body: combined,
     });
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return true;
+    if (response.ok) return "ok";
+    if (response.status === 400 || response.status === 413) return "rejected";
+    throw new Error(`HTTP ${response.status}`);
   } catch (e) {
     console.warn(`Upload failed (chunk ${meta.chunkIndex}):`, e.message);
-    return false;
+    return "retry";
   }
 }
 
-async function finalizeUpload(trackType) {
-  try {
-    const response = await fetch("/api/finalize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({
-        sessionId: state.sessionId,
-        participantId: state.myId,
-        username: state.username,
-        mimeType: "audio/webm;codecs=opus",
-        trackType,
-      }),
-    });
+// Resolves once no chunk of this take/track is still waiting to upload (or
+// after maxWaitMs — the server's stale-chunk sweep appends any stragglers).
+async function waitForUploads(sessionId, trackType, maxWaitMs = 10 * 60 * 1000) {
+  const deadline = Date.now() + maxWaitMs;
+  const pending = () => state.uploadQueue.some((q) => q.meta.sessionId === sessionId && q.meta.trackType === trackType);
+  while (pending() && Date.now() < deadline) await sleep(250);
+  return !pending();
+}
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const result = await response.json();
-    console.log(`Finalized ${trackType} track:`, result);
-    return result;
-  } catch (e) {
-    console.error("Finalize failed:", e.message);
-    return null;
+// take = { sessionId, participantId } captured when the take started, so a
+// reconnect (new id) or a new take can't redirect this one's finalize.
+async function finalizeUpload(trackType, take) {
+  // Finalizing concatenates whatever chunks the server has, so every chunk
+  // must have landed first or the tail of the take is missing from the file.
+  await waitForUploads(take.sessionId, trackType);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const response = await fetch("/api/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({
+          sessionId: take.sessionId,
+          participantId: take.participantId,
+          username: state.username,
+          mimeType: "audio/webm;codecs=opus",
+          trackType,
+        }),
+      });
+
+      if (response.status === 400) return null; // nothing on the server to assemble
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      console.log(`Finalized ${trackType} track:`, result);
+      return result;
+    } catch (e) {
+      console.error("Finalize failed:", e.message);
+      await sleep(Math.min(2000 * 2 ** attempt, 15000));
+    }
   }
+  return null;
 }
 
 function updateUploadStatus() {
@@ -2709,7 +3074,8 @@ function updateUploadStatus() {
   fillEl.style.width = `${pct}%`;
 
   if (state.uploadQueue.length > 0) {
-    labelEl.textContent = "Uploading…";
+    labelEl.textContent = state.uploadStalled ? "Upload stalled — retrying…" : "Uploading…";
+    statusEl.classList.toggle("error", !!state.uploadStalled);
     countEl.textContent = `${done}/${total}`;
   } else if (state.uploadFailedCount > 0) {
     labelEl.textContent = `Done (${state.uploadFailedCount} failed)`;
@@ -2732,21 +3098,25 @@ document.getElementById("record-btn").addEventListener("click", () => {
       return;
     }
     const sessionId = crypto.randomUUID();
-    state.ws.send(JSON.stringify({
+    const sent = wsSend(JSON.stringify({
       type: "recording-control",
       action: "countdown",
       sessionId,
     }));
+    if (!sent) showToast("Not connected to the server yet — try again in a moment", "error");
   } else {
     if (!state.isHost) {
       showToast("Only the host can stop recording", "info");
       return;
     }
-    state.ws.send(JSON.stringify({
+    const sent = wsSend(JSON.stringify({
       type: "recording-control",
       action: "stop",
       sessionId: state.sessionId,
     }));
+    // Offline: at least stop this side. Everyone else stops when they
+    // reconnect and learn the take is over.
+    if (!sent) stopRecording();
   }
 });
 
@@ -2810,7 +3180,7 @@ async function runCountdown() {
   overlay.classList.remove("active");
 
   if (state.isHost) {
-    state.ws.send(JSON.stringify({
+    wsSend(JSON.stringify({
       type: "recording-control",
       action: "start",
       sessionId: state.sessionId,
@@ -2835,13 +3205,20 @@ function actuallyStartRecording() {
     return;
   }
 
-  // Reset upload counters
+  if (state.isRecording) return; // a repeated "start" must not restart the take
+
+  // Reset upload counters. The queue itself is left alone: it may still hold
+  // the tail of the previous take.
   state.chunkIndex = 0;
   state.mixChunkIndex = 0;
   state.uploadedCount = 0;
   state.uploadFailedCount = 0;
-  state.uploadQueue = [];
   document.getElementById("upload-status").classList.remove("error");
+
+  // Fixed for the whole take: the participant id changes if the signaling
+  // socket reconnects, and chunks must keep landing in the same folder.
+  const take = { sessionId: state.sessionId, participantId: state.myId };
+  state.take = take;
 
   // Create a mixing destination: mic + sync tones
   state.recordingDest = state.audioContext.createMediaStreamDestination();
@@ -2868,8 +3245,8 @@ function actuallyStartRecording() {
 
       // Upload this chunk to the server
       enqueueChunk(e.data, {
-        sessionId: state.sessionId,
-        participantId: state.myId,
+        sessionId: take.sessionId,
+        participantId: take.participantId,
         username: state.username,
         chunkIndex: state.chunkIndex++,
         trackType: "individual",
@@ -2889,8 +3266,8 @@ function actuallyStartRecording() {
       mimeType,
     });
 
-    // Finalize on server (concatenate chunks)
-    finalizeUpload("individual");
+    // Finalize on server (concatenate chunks) once the upload queue has drained
+    finalizeUpload("individual", take);
     showToast("Recording saved — check Downloads", "success");
   };
 
@@ -2918,8 +3295,8 @@ function actuallyStartRecording() {
 
         // Upload mix chunk to server
         enqueueChunk(e.data, {
-          sessionId: state.sessionId,
-          participantId: state.myId,
+          sessionId: take.sessionId,
+          participantId: take.participantId,
           username: state.username,
           chunkIndex: state.mixChunkIndex++,
           trackType: "mix",
@@ -2939,7 +3316,7 @@ function actuallyStartRecording() {
         mimeType,
       });
 
-      finalizeUpload("mix");
+      finalizeUpload("mix", take);
     };
 
     state.mixRecorder.start(1000);
@@ -2966,34 +3343,50 @@ function actuallyStartRecording() {
   showToast("Recording — uploading to server", "success");
 }
 
+// Returns a promise that settles once both recorders have delivered their
+// final data and fired onstop — i.e. once state.recordings holds this take.
 function stopRecording() {
+  if (state.stopping) return state.stopping;
+  if (!state.isRecording) return Promise.resolve();
+
   playSyncTone(200, 1500);
   setTimeout(() => playSyncTone(200, 1000), 300);
 
-  setTimeout(() => {
-    if (state.recorder && state.recorder.state !== "inactive") {
-      state.recorder.stop();
-    }
-    if (state.mixRecorder && state.mixRecorder.state !== "inactive") {
-      state.mixRecorder.stop();
-    }
+  state.stopping = new Promise((resolve) => {
+    setTimeout(() => {
+      const stopped = [state.recorder, state.mixRecorder]
+        .filter((r) => r && r.state !== "inactive")
+        .map((r) => new Promise((done) => {
+          // Registered after the onstop property set at start, so it runs after it.
+          r.addEventListener("stop", done, { once: true });
+          r.addEventListener("error", done, { once: true });
+          try { r.stop(); } catch { done(); }
+        }));
 
-    state.isRecording = false;
-    state.recordingDest = null;
-    state._recMicSource = null;
-    state.mixDest = null;
-    state.mixRecorder = null;
-    state._mixLocalSource = null;
+      state.isRecording = false;
+      state.recordingDest = null;
+      state._recMicSource = null;
+      state.mixDest = null;
+      state.mixRecorder = null;
+      state._mixLocalSource = null;
 
-    const btn = document.getElementById("record-btn");
-    btn.classList.remove("recording");
-    btn.textContent = "REC";
-    document.getElementById("timer").classList.remove("recording");
-    document.getElementById("rec-indicator").style.display = "none";
+      const btn = document.getElementById("record-btn");
+      btn.classList.remove("recording");
+      btn.textContent = "REC";
+      document.getElementById("timer").classList.remove("recording");
+      document.getElementById("rec-indicator").style.display = "none";
 
-    stopTimer();
-    showToast("Recording stopped — finishing upload…", "info");
-  }, 600);
+      stopTimer();
+      showToast("Recording stopped — finishing upload…", "info");
+
+      // Don't hang forever if a recorder never reports back.
+      Promise.race([Promise.all(stopped), sleep(5000)]).then(() => {
+        state.stopping = null;
+        resolve();
+      });
+    }, 600);
+  });
+  return state.stopping;
 }
 
 function sleep(ms) {
@@ -3047,7 +3440,7 @@ document.getElementById("cam-toggle").addEventListener("click", async () => {
         peer.pc.addTrack(state.videoTrack, state.localStream);
         const offer = await peer.pc.createOffer();
         await peer.pc.setLocalDescription(offer);
-        state.ws.send(JSON.stringify({
+        wsSend(JSON.stringify({
           type: "signal",
           targetId: peerId,
           signal: { sdp: peer.pc.localDescription },
@@ -3111,7 +3504,7 @@ function showDownloads() {
       item.className = "download-item";
       item.innerHTML = `
         <div>
-          <span>${rec.name}</span><br/>
+          <span>${escHtml(rec.name)}</span><br/>
           <span class="dl-meta">${mins}m ${secs}s · ${size} MB · WebM/Opus</span>
         </div>
         <a href="#" id="dl-${i}">Download</a>
@@ -3162,10 +3555,10 @@ function showDownloads() {
           item.className = "download-item";
           item.innerHTML = `
             <div>
-              <span>${file.filename}</span><br/>
+              <span>${escHtml(file.filename)}</span><br/>
               <span class="dl-meta">${size} MB · server backup</span>
             </div>
-            <a href="${file.downloadUrl}" download="${file.filename}">Download</a>
+            <a href="${escHtml(file.downloadUrl)}" download="${escHtml(file.filename)}">Download</a>
           `;
           list.appendChild(item);
         });
@@ -3193,34 +3586,45 @@ function showDownloads() {
 document.getElementById("leave-btn").addEventListener("click", () => {
   if (state.isRecording) {
     if (!confirm("You are still recording. Leave anyway?")) return;
-    stopRecording();
   }
-
-  window.removeEventListener("beforeunload", handleBeforeUnload);
-
-  // Cleanup
-  if (state.localStream) {
-    state.localStream.getTracks().forEach((t) => t.stop());
-  }
-  for (const [id] of Object.entries(state.peers)) {
-    removePeer(id);
-  }
-  if (state.isHost && state.ws && state.ws.readyState === WebSocket.OPEN) {
-    state.ws.send(JSON.stringify({ type: "host-left" }));
-  }
-  if (state.ws) state.ws.close();
-
-  // Save recordings to localStorage for returning user access
-  if (state.recordings.length > 0) {
-    saveRecordingsToLocal();
-    showPostSession();
-  } else {
-    // Back to lobby
-    document.getElementById("studio").classList.remove("active");
-    document.getElementById("lobby").style.display = "flex";
-    showLobbyRecordings();
-  }
+  leaveStudio({ notifyHost: true });
 });
+
+// One exit path for leaving, being removed and the host ending the session.
+// It waits for an in-progress take to finish stopping BEFORE tearing down the
+// microphone, so the recording is complete and shows up to be downloaded.
+let leaving = false;
+async function leaveStudio({ notifyHost }) {
+  if (leaving) return;
+  leaving = true;
+  try {
+    if (state.isRecording || state.stopping) await stopRecording();
+
+    window.removeEventListener("beforeunload", handleBeforeUnload);
+
+    // Cleanup
+    if (state.localStream) {
+      state.localStream.getTracks().forEach((t) => t.stop());
+    }
+    for (const id of Object.keys(state.peers)) removePeer(id);
+    if (notifyHost && state.isHost) sendSignaling({ type: "host-left" });
+    closeSignaling();
+    signalingReconnects = 0;
+
+    // Save recordings to localStorage for returning user access
+    if (state.recordings.length > 0) {
+      saveRecordingsToLocal();
+      showPostSession();
+    } else {
+      // Back to lobby
+      document.getElementById("studio").classList.remove("active");
+      document.getElementById("lobby").style.display = "flex";
+      showLobbyRecordings();
+    }
+  } finally {
+    leaving = false;
+  }
+}
 
 function saveRecordingsToLocal() {
   const stored = JSON.parse(localStorage.getItem("podcast-studio-local-recordings") || "[]");
@@ -3237,7 +3641,14 @@ function saveRecordingsToLocal() {
       });
       // Keep only last 20 recordings to avoid localStorage overflow
       while (stored.length > 20) stored.shift();
-      localStorage.setItem("podcast-studio-local-recordings", JSON.stringify(stored));
+      // localStorage holds ~5 MB, so anything beyond a short take won't fit.
+      // That must not throw: the download list on screen still has the blob.
+      try {
+        localStorage.setItem("podcast-studio-local-recordings", JSON.stringify(stored));
+      } catch {
+        stored.pop();
+        console.warn(`"${rec.name}" is too large to keep in browser storage — download it before closing this tab`);
+      }
     };
     reader.readAsDataURL(rec.blob);
   });
@@ -3256,7 +3667,7 @@ function showPostSession() {
     item.className = "download-item";
     item.innerHTML = `
       <div>
-        <span>${rec.name}</span><br/>
+        <span>${escHtml(rec.name)}</span><br/>
         <span class="dl-meta">${mins}m ${secs}s · ${size} MB</span>
       </div>
       <a href="#" id="post-dl-${i}" style="color:var(--accent); text-decoration:none; font-weight:600; font-size:0.85rem;">Download</a>
@@ -3372,14 +3783,33 @@ document.getElementById("studio-mic-select").addEventListener("change", async (e
     state.localStream.addTrack(newTrack);
     oldTrack.stop();
 
-    // Replace track in all peer connections
-    for (const [, peer] of Object.entries(state.peers)) {
-      const sender = peer.pc.getSenders().find((s) => s.track && s.track.kind === "audio");
-      if (sender) await sender.replaceTrack(newTrack);
+    // Peers normally receive the peerOutputDest mix (mic + soundboard), which
+    // setupAudioAnalysis() below re-feeds from the new mic — swapping the
+    // sender's track for the raw mic would cut the soundboard out of the call.
+    if (!state.peerOutputDest) {
+      for (const [, peer] of Object.entries(state.peers)) {
+        const sender = peer.pc.getSenders().find((s) => s.track && s.track.kind === "audio");
+        if (sender) await sender.replaceTrack(newTrack);
+      }
     }
 
     // Mute state carries over
     newTrack.enabled = !state.micMuted;
+
+    // A take in progress records from Web Audio sources built on the old
+    // (now stopped) track — rewire them or the rest of the take is silence.
+    if (state.isRecording && state.audioContext) {
+      if (state.recordingDest) {
+        try { state._recMicSource?.disconnect(); } catch {}
+        state._recMicSource = state.audioContext.createMediaStreamSource(new MediaStream([newTrack]));
+        state._recMicSource.connect(state.recordingDest);
+      }
+      if (state.mixDest) {
+        try { state._mixLocalSource?.disconnect(); } catch {}
+        state._mixLocalSource = state.audioContext.createMediaStreamSource(new MediaStream([newTrack]));
+        state._mixLocalSource.connect(state.mixDest);
+      }
+    }
 
     // Re-setup audio analysis
     setupAudioAnalysis();
@@ -3434,7 +3864,7 @@ document.getElementById("studio-cam-select").addEventListener("change", async (e
         peer.pc.addTrack(newVideoTrack, state.localStream);
         const offer = await peer.pc.createOffer();
         await peer.pc.setLocalDescription(offer);
-        state.ws.send(JSON.stringify({
+        wsSend(JSON.stringify({
           type: "signal",
           targetId: peerId,
           signal: { sdp: peer.pc.localDescription },
@@ -3624,10 +4054,10 @@ function renderServerClipList() {
       const row = document.createElement("div");
       row.style.cssText = "display:flex; align-items:center; gap:0.4rem; padding:0.3rem 0.5rem; font-size:0.8rem;";
       row.innerHTML = `
-        <button class="clip-play-btn" style="width:26px;height:26px;font-size:0.7rem;" data-url="${sc.url}" data-name="${sc.name}">▶</button>
-        <span class="clip-server-name" style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Double-click to rename">${sc.name}</span>
-        ${state.role === "host" ? `<button class="clip-rename-btn" data-clip-id="${sc.id}" data-clip-name="${sc.name}" title="Rename" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.75rem;opacity:0.5;flex-shrink:0;">✎</button>` : ""}
-        ${state.role === "host" ? `<button class="clip-remove-btn" data-clip-id="${sc.id}" title="Delete from server">✕</button>` : ""}
+        <button class="clip-play-btn" style="width:26px;height:26px;font-size:0.7rem;" data-url="${escHtml(sc.url)}" data-name="${escHtml(sc.name)}">▶</button>
+        <span class="clip-server-name" style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Double-click to rename">${escHtml(sc.name)}</span>
+        ${state.role === "host" ? `<button class="clip-rename-btn" data-clip-id="${escHtml(sc.id)}" data-clip-name="${escHtml(sc.name)}" title="Rename" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.75rem;opacity:0.5;flex-shrink:0;">✎</button>` : ""}
+        ${state.role === "host" ? `<button class="clip-remove-btn" data-clip-id="${escHtml(sc.id)}" title="Delete from server">✕</button>` : ""}
       `;
       container.appendChild(row);
     });
@@ -3786,7 +4216,7 @@ function renderClipList() {
     item.id = `clip-${i}`;
 
     const sharedByLabel = clip.sharedBy
-      ? ` <span style="font-size:0.6rem;color:var(--amber);">↑ from ${clip.sharedBy}</span>`
+      ? ` <span style="font-size:0.6rem;color:var(--amber);">↑ from ${escHtml(clip.sharedBy)}</span>`
       : "";
     const serverLabel = clip.isServer
       ? ' <span style="font-size:0.6rem;color:var(--text-dim);">☁</span>'
@@ -3808,7 +4238,7 @@ function renderClipList() {
     item.innerHTML = `
       ${actionBtn}
       <div class="clip-info">
-        <div class="clip-name">${clip.name}${serverLabel}${sharedByLabel}</div>
+        <div class="clip-name">${escHtml(clip.name)}${serverLabel}${sharedByLabel}</div>
         <div style="display:flex;align-items:center;gap:0.4rem;">
           <span class="clip-duration">${mins}:${String(secs).padStart(2, "0")}</span>
           ${queuedBadge}
@@ -3935,7 +4365,7 @@ function shareClipWithHost(idx) {
   }
   const audioData = btoa(binary);
 
-  state.ws.send(JSON.stringify({
+  wsSend(JSON.stringify({
     type: "clip-share-request",
     clipName: clip.name,
     mimeType: clip.mimeType || "audio/mpeg",
@@ -4022,7 +4452,7 @@ function sendChatMessage() {
     showToast("Not connected", "error");
     return;
   }
-  state.ws.send(JSON.stringify({ type: "chat", text }));
+  wsSend(JSON.stringify({ type: "chat", text }));
   chatInput.value = "";
 }
 
@@ -4158,10 +4588,10 @@ chatInput.addEventListener("keydown", (e) => {
     }
     const html = noteDataToHtml(source?.[tab.id]);
     if (!html) {
-      body.innerHTML = `<div class="pn-empty">No ${tab.label} notes yet.</div>`;
+      body.innerHTML = `<div class="pn-empty">No ${escHtml(tab.label)} notes yet.</div>`;
       return;
     }
-    body.innerHTML = `<div class="pn-blocks">${html}</div>`;
+    body.innerHTML = `<div class="pn-blocks">${sanitizeNoteHtml(html)}</div>`;
   }
 
   async function loadNotes(game) {
@@ -4256,8 +4686,8 @@ async function loadStudioScreenshots() {
       return;
     }
     grid.innerHTML = [...list].reverse().map(s => `
-      <div class="studio-ss-thumb" data-url="${s.url}">
-        <img src="${s.url}" loading="lazy" alt="">
+      <div class="studio-ss-thumb" data-url="${escHtml(s.url)}">
+        <img src="${escHtml(s.url)}" loading="lazy" alt="">
         ${s.videoTime != null ? `<div class="studio-ss-time">${formatStudioTime(s.videoTime)}</div>` : ''}
       </div>
     `).join('');

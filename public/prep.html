@@ -16,8 +16,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mdbassit/Wysi@latest/dist/wysi.min.css">
-  <script src="https://cdn.jsdelivr.net/gh/mdbassit/Wysi@latest/dist/wysi.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mdbassit/Wysi@0.6.3/dist/wysi.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/mdbassit/Wysi@0.6.3/dist/wysi.min.js"></script>
   <style>
     :root {
       --bg:        #061528;
@@ -1792,15 +1792,16 @@
           else privateNotes[k] = v;
         }
         const saves = [
-          fetch('/api/prep-notes', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          fetch('/api/prep-notes', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() },
             body: JSON.stringify({ user: '_shared', game: currentGameSlug, title: currentGameTitle, notes: sharedNotes }) }),
         ];
         if (Object.keys(privateNotes).length) {
           const privateKey = `${currentUser}_${currentRole}`;
-          saves.push(fetch('/api/prep-notes', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          saves.push(fetch('/api/prep-notes', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() },
             body: JSON.stringify({ user: privateKey, game: currentGameSlug, notes: privateNotes }) }));
         }
-        await Promise.all(saves);
+        const results = await Promise.all(saves);
+        if (results.some(r => r.status === 401)) { setSaveStatus('Signed out — sign in again to save to the server', 'error'); showLoginOverlay(); }
       } catch (e) { console.warn('Server save failed:', e.message); }
     }
 
@@ -1848,7 +1849,7 @@
 
     function joinPrepRoom() {
       if (!prepWs || prepWs.readyState !== 1 || !currentGameSlug || !currentUser) return;
-      prepWs.send(JSON.stringify({ type: 'prep-join', room: `prep:${currentGameSlug}`, username: currentUser }));
+      prepWs.send(JSON.stringify({ type: 'prep-join', room: `prep:${currentGameSlug}`, username: currentUser, token: currentToken }));
     }
 
     function applyRemoteUpdate(field, content) {
@@ -1927,7 +1928,7 @@
         bannerText.textContent = 'SHARED · Co-edited with the crew · auto-saving';
         if (currentUser) {
           presence.innerHTML =
-            `<span class="presence-avatar" style="background:var(--red)">${currentUser[0].toUpperCase()}</span>` +
+            `<span class="presence-avatar" style="background:var(--red)">${escHtml(currentUser[0].toUpperCase())}</span>` +
             `<span class="presence-label">EDITING</span>`;
         }
       }
@@ -2048,18 +2049,18 @@
       count.textContent = list.length ? `(${list.length})` : '';
       if (!list.length) { grid.innerHTML = '<p style="font-size:.75rem;color:var(--ink-4);margin:0">No screenshots yet. Press <kbd>Alt</kbd>+<kbd>S</kbd> while a video is playing.</p>'; return; }
       grid.innerHTML = list.map(s => `
-        <div class="ss-thumb" data-filename="${s.filename}">
-          <img src="${s.url}" loading="lazy" alt="screenshot">
-          <button class="ss-del" title="Delete" data-filename="${s.filename}">✕</button>
-          <button class="ss-ins" title="Insert into notes" data-url="${s.url}" data-vt="${s.videoTime ?? ''}">→</button>
-          ${s.videoTime != null ? `<button class="ss-time" data-t="${s.videoTime}">${formatTime(s.videoTime)}</button>` : ''}
+        <div class="ss-thumb" data-filename="${escHtml(s.filename)}">
+          <img src="${escHtml(s.url)}" loading="lazy" alt="screenshot">
+          <button class="ss-del" title="Delete" data-filename="${escHtml(s.filename)}">✕</button>
+          <button class="ss-ins" title="Insert into notes" data-url="${escHtml(s.url)}" data-vt="${escHtml(s.videoTime ?? '')}">→</button>
+          ${s.videoTime != null ? `<button class="ss-time" data-t="${escHtml(s.videoTime)}">${formatTime(s.videoTime)}</button>` : ''}
         </div>
       `).reverse().join('');
       grid.querySelectorAll('.ss-del').forEach(btn => {
         btn.addEventListener('click', async e => {
           e.stopPropagation();
           const fn = btn.dataset.filename;
-          await fetch(`/api/screenshots/${encodeURIComponent(currentGameSlug)}/${fn}`, { method: 'DELETE', headers: authHeaders() });
+          await fetch(`/api/screenshots/${encodeURIComponent(currentGameSlug)}/${encodeURIComponent(fn)}`, { method: 'DELETE', headers: authHeaders() });
           loadScreenshots();
         });
       });
@@ -2167,7 +2168,7 @@
           <div class="source-item-meta">
             <div class="source-item-label">${escHtml(src.name)}</div>
             <div class="source-item-kind">
-              <span class="kind-lbl" style="color:var(--ink-4)">${src.type === 'url' ? src.domain || 'URL' : (src.mime || 'FILE')}</span>
+              <span class="kind-lbl" style="color:var(--ink-4)">${escHtml(src.type === 'url' ? src.domain || 'URL' : (src.mime || 'FILE'))}</span>
             </div>
           </div>
           <div class="source-item-actions">
@@ -2516,7 +2517,7 @@
       if (typeof Hls !== 'undefined') return;
       await new Promise(resolve => {
         const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+        s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.7.4';
         s.onload = s.onerror = resolve;
         document.head.appendChild(s);
       });
@@ -2780,7 +2781,7 @@
       document.getElementById('focal-meta').textContent  = 'Add a source to get started';
 
       fetch('/api/current-game', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ game: slug, title }),
       }).catch(() => {});
 
@@ -3077,8 +3078,22 @@
     setSaveStatus('No episode selected', 'idle');
     resetFocalPane();
 
-    if (currentUser) { applyUser(currentUser); }
-    else { showLoginOverlay(); }
+    // The role in localStorage is only a hint; the server decides. Check the
+    // stored token is still valid (and what role it really carries) first.
+    (async () => {
+      if (!currentUser || !currentToken) { showLoginOverlay(); return; }
+      try {
+        const r = await fetch('/api/auth/session', { headers: authHeaders() });
+        if (!r.ok) throw new Error('expired');
+        const { role } = await r.json();
+        localStorage.setItem('podcast-studio-role', role);
+        applyUser(currentUser);
+      } catch {
+        currentToken = null;
+        localStorage.removeItem('podcast-studio-token');
+        showLoginOverlay();
+      }
+    })();
 
   });
   </script>
