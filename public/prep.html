@@ -12,7 +12,7 @@
   <link rel="manifest" href="/favicon/site.webmanifest" />
   <link rel="stylesheet" href="/nav-header.css" />
   <script src="/nav-header.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
@@ -1761,9 +1761,14 @@
         const d = ev.target.result;
         if (!d.objectStoreNames.contains('prep')) d.createObjectStore('prep', { keyPath: 'id' });
       };
-      req.onsuccess = ev => { db = ev.target.result; };
-      req.onerror   = ev => console.error('IndexedDB:', ev.target.errorCode);
+      req.onsuccess = ev => { db = ev.target.result; dbReadyResolve(); };
+      req.onerror   = ev => { console.error('IndexedDB:', ev.target.errorCode); dbReadyResolve(); };
+      req.onblocked = () => dbReadyResolve();
     }
+    // Resolves once IndexedDB has opened or failed; notes still load from the
+    // server without it.
+    let dbReadyResolve;
+    const dbReady = new Promise(r => { dbReadyResolve = r; setTimeout(r, 3000); });
 
     function saveToIndexedDB(notes) {
       if (!db || !currentGameId) return;
@@ -1774,35 +1779,56 @@
     }
 
     function loadFromIndexedDB(cb) {
-      if (!db || !currentGameId) return;
+      if (!db || !currentGameId) { cb(null); return; }
       const key = currentUser ? `${currentUser}::${currentGameId}` : currentGameId;
       const req = db.transaction(['prep'],'readonly').objectStore('prep').get(key);
       req.onsuccess = () => cb(req.result || null);
+      req.onerror   = () => cb(null);
     }
 
     // ── Server save / load ────────────────────────────────────────────
-    async function saveToServer(notes) {
-      if (!currentUser || !currentGameSlug) return;
+    // ctx = { slug, title, user, role } captured when the save was triggered,
+    // so a save that runs after switching episode still goes to the right one.
+    // Only fields that changed since the last load/save are sent, and the
+    // shared document is merged server-side, so a stale copy of a field you
+    // didn't touch can't overwrite someone else's newer edit.
+    // Returns 'ok', 'auth' or 'error'.
+    async function saveToServer(notes, ctx) {
+      if (!ctx.user || !ctx.slug) return 'ok';
+      const baseline = lastSaved[ctx.slug] || {};
+      const sharedNotes = {};
+      const privateNotes = {};
+      for (const [k, v] of Object.entries(notes)) {
+        if (baseline[k] === v.html) continue;
+        if (SHARED_FIELDS.includes(k)) sharedNotes[k] = v;
+        else privateNotes[k] = v;
+      }
+      const put = (body) => fetch('/api/prep-notes', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ ...body, game: ctx.slug, merge: true }),
+      });
+      const saves = [];
+      if (Object.keys(sharedNotes).length) saves.push(put({ user: '_shared', title: ctx.title, notes: sharedNotes }));
+      if (Object.keys(privateNotes).length) saves.push(put({ user: `${ctx.user}_${ctx.role}`, notes: privateNotes }));
+      if (saves.length === 0) return 'ok';
       try {
-        // Shared fields go to _shared so all users read the same data
-        const sharedNotes = {};
-        const privateNotes = {};
-        for (const [k, v] of Object.entries(notes)) {
-          if (SHARED_FIELDS.includes(k)) sharedNotes[k] = v;
-          else privateNotes[k] = v;
-        }
-        const saves = [
-          fetch('/api/prep-notes', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() },
-            body: JSON.stringify({ user: '_shared', game: currentGameSlug, title: currentGameTitle, notes: sharedNotes }) }),
-        ];
-        if (Object.keys(privateNotes).length) {
-          const privateKey = `${currentUser}_${currentRole}`;
-          saves.push(fetch('/api/prep-notes', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() },
-            body: JSON.stringify({ user: privateKey, game: currentGameSlug, notes: privateNotes }) }));
-        }
         const results = await Promise.all(saves);
-        if (results.some(r => r.status === 401)) { setSaveStatus('Signed out — sign in again to save to the server', 'error'); showLoginOverlay(); }
-      } catch (e) { console.warn('Server save failed:', e.message); }
+        if (results.some(r => r.status === 401)) return 'auth';
+        if (results.some(r => !r.ok)) return 'error';
+        const base = (lastSaved[ctx.slug] ||= {});
+        for (const [k, v] of Object.entries({ ...sharedNotes, ...privateNotes })) base[k] = v.html;
+        return 'ok';
+      } catch (e) {
+        console.warn('Server save failed:', e.message);
+        return 'error';
+      }
+    }
+
+    // Last content known to be on the server, per episode slug and field.
+    const lastSaved = {};
+    function rememberSaved(slug, notes) {
+      const base = (lastSaved[slug] = {});
+      for (const [k, v] of Object.entries(notes)) base[k] = v.html;
     }
 
     async function loadFromServer() {
@@ -1840,7 +1866,11 @@
         if (!SHARED_FIELDS.includes(field)) return;
         setSaveStatus(`${username} is editing…`, 'saved');
         if (lastFocusedNoteId === field) {
-          applyQueue[field] = content; // apply when user blurs this editor
+          // Apply when the user leaves this editor, unless they keep typing
+          // in the meantime: then their newer local text wins.
+          const el = document.getElementById(`ej-${field}`);
+          if (!applyQueue[field]) applyQueue[field] = { baseline: el ? el.value : '' };
+          applyQueue[field].content = content;
         } else {
           applyRemoteUpdate(field, content);
         }
@@ -1858,6 +1888,8 @@
       const html = typeof content === 'string' ? content : (content?.html || '');
       Wysi.setContent(el, html);
       updateChips(field, stripHtml(html));
+      // The sender saves this; treat it as the server copy so we don't echo it.
+      if (currentGameSlug) (lastSaved[currentGameSlug] ||= {})[field] = el.value;
     }
 
     function broadcastNotesUpdate(field) {
@@ -1872,30 +1904,56 @@
     }
 
     async function saveNotes() {
-      if (!currentGameId) return;
+      clearTimeout(saveTimeout);
+      saveTimeout = null;
+      if (!currentGameId || notesLoading) return;
+      const ctx = { slug: currentGameSlug, title: currentGameTitle, user: currentUser, role: currentRole };
       const notes = collectNotes();
       saveToIndexedDB(notes);
-      await saveToServer(notes);
-      setSaveStatus('Saved · ' + new Date().toLocaleTimeString(), 'saved');
+      const result = await saveToServer(notes, ctx);
+      if (ctx.slug !== currentGameSlug) return; // user moved on; don't report on the old episode
+      if (result === 'auth') { setSaveStatus('Signed out — sign in again to save to the server', 'error'); showLoginOverlay(); }
+      else if (result === 'error') { setSaveStatus('Not saved to the server — will retry on your next edit', 'error'); }
+      else setSaveStatus((ctx.user ? 'Saved · ' : 'Saved in this browser · ') + new Date().toLocaleTimeString(), 'saved');
     }
 
+    // Incremented per load so a slow load for a previous episode can't
+    // overwrite the editors after the user has switched.
+    let notesLoadSeq = 0;
+    let notesLoading = false;
     async function loadNotes() {
       if (!currentGameId) return;
+      const seq = ++notesLoadSeq;
+      const slug = currentGameSlug;
+      notesLoading = true;
       setSaveStatus('Loading…', 'idle');
-      let notes = await loadFromServer();
-      const source = notes ? 'server' : 'local';
-      if (!notes) notes = await new Promise(r => loadFromIndexedDB(rec => r(rec ? rec.notes : null)));
-      if (notes) {
-        populateNotes(notes);
-        setSaveStatus(source === 'server' ? 'Loaded from server' : 'Loaded from local cache', 'saved');
-      } else {
-        clearNotes();
-        setSaveStatus(currentUser ? 'New game — start taking notes' : 'No notes saved', 'idle');
+      try {
+        let notes = await loadFromServer();
+        const source = notes ? 'server' : 'local';
+        if (!notes) {
+          await dbReady;
+          notes = await new Promise(r => loadFromIndexedDB(rec => r(rec ? rec.notes : null)));
+        }
+        if (seq !== notesLoadSeq) return;
+        applyQueue = {};
+        if (notes) {
+          populateNotes(notes);
+          setSaveStatus(source === 'server' ? 'Loaded from server' : 'Loaded from local cache', 'saved');
+        } else {
+          clearNotes();
+          setSaveStatus(currentUser ? 'New game — start taking notes' : 'No notes saved', 'idle');
+        }
+        // Only what came from the server counts as saved there; local-cache
+        // content gets uploaded on the next edit.
+        if (source === 'server') rememberSaved(slug, collectNotes());
+        else lastSaved[slug] = {};
+      } finally {
+        if (seq === notesLoadSeq) notesLoading = false;
       }
     }
 
     function scheduleSave() {
-      if (!currentGameId) return;
+      if (!currentGameId || notesLoading) return;
       setSaveStatus('Unsaved changes…', 'unsaved');
       clearTimeout(saveTimeout);
       saveTimeout = setTimeout(saveNotes, 1200);
@@ -1962,10 +2020,10 @@
       if (editorDiv) {
         editorDiv.addEventListener('focusin',  () => { lastFocusedNoteId = id; });
         editorDiv.addEventListener('focusout', () => {
-          if (applyQueue[id]) {
-            const content = applyQueue[id];
+          const queued = applyQueue[id];
+          if (queued) {
             delete applyQueue[id];
-            applyRemoteUpdate(id, content);
+            if (el.value === queued.baseline) applyRemoteUpdate(id, queued.content);
           }
         });
       }
@@ -2673,12 +2731,11 @@
       }
       setSmMsg('file', 'Uploading…', '');
       const meta = JSON.stringify({ user: currentUser || '', game: currentGameSlug, name: file.name, mime: file.type });
-      const metaBytes = new TextEncoder().encode(meta + '\n');
-      const fileBytes = new Uint8Array(await file.arrayBuffer());
-      const body = new Uint8Array(metaBytes.length + fileBytes.length);
-      body.set(metaBytes); body.set(fileBytes, metaBytes.length);
+      // A Blob body lets the browser stream the file from disk instead of
+      // holding it (twice) in memory, which crashed tabs on large videos.
+      const body = new Blob([meta + '\n', file]);
       try {
-        const res = await fetch('/api/prep-sources/upload', { method: 'POST', headers: authHeaders(), body: body.buffer });
+        const res = await fetch('/api/prep-sources/upload', { method: 'POST', headers: authHeaders(), body });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Upload failed');
         setSmMsg('file', `✓ "${file.name}" added.`, 'ok');
@@ -2774,6 +2831,9 @@
     }
 
     async function selectEpisode(slug, title) {
+      // Flush a pending save for the episode we're leaving while the editors
+      // still hold its notes; otherwise they'd be saved under the new slug.
+      if (saveTimeout) await saveNotes();
       currentGameId = slug; currentGameSlug = slug; currentGameTitle = title;
       updateSetCurrentBtn();
       resetFocalPane();
@@ -2785,8 +2845,7 @@
         body: JSON.stringify({ game: slug, title }),
       }).catch(() => {});
 
-      if (db) { loadNotes(); }
-      else { const t = setInterval(() => { if (db) { clearInterval(t); loadNotes(); } }, 100); }
+      loadNotes();
 
       loadSources();
       loadScreenshots();
@@ -2840,8 +2899,10 @@
     exportJsonBtn.addEventListener('click', () => {
       const notes = collectNotes();
       const blob  = new Blob([JSON.stringify({ gameId: currentGameId, gameTitle: currentGameTitle, exportedAt: new Date().toISOString(), notes }, null, 2)], { type: 'application/json' });
-      const a     = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: (currentGameTitle||'game').replace(/[^a-zA-Z0-9]/g,'_')+'_notes.json' });
+      const url   = URL.createObjectURL(blob);
+      const a     = Object.assign(document.createElement('a'), { href: url, download: (currentGameTitle||'game').replace(/[^a-zA-Z0-9]/g,'_')+'_notes.json' });
       document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
 
     copyTextBtn.addEventListener('click', () => {
@@ -2950,18 +3011,26 @@
 
     // ── Keyboard shortcuts ────────────────────────────────────────────
     document.addEventListener('keydown', e => {
-      const inForm = ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)
-                  || !!document.activeElement.closest('.wysi-editor');
+      const active = document.activeElement || document.body;
+      const inForm = ['INPUT','TEXTAREA','SELECT'].includes(active.tagName)
+                  || active.isContentEditable
+                  || !!active.closest('.wysi-editor');
+      // Space/Enter on a focused button or link must activate it, not the player.
+      const onControl = !!active.closest('button, a[href], [role="button"], summary');
+      // Leave browser/OS shortcuts (Cmd+S, Ctrl+T, …) alone.
+      const plainKey = !e.ctrlKey && !e.metaKey && !e.altKey;
 
       if (e.key === 'Escape' && quoteMode) { closeQuoteComposer(); return; }
-      if (e.key === 'Enter'  && quoteMode && !inForm) { e.preventDefault(); addQuoteToNotes(); return; }
+      if (e.key === 'Enter'  && quoteMode && !inForm && !onControl) { e.preventDefault(); addQuoteToNotes(); return; }
 
-      if (e.code === 'KeyT' && e.altKey)  { e.preventDefault(); insertTimestamp(); return; }
-      if (e.code === 'KeyS' && e.altKey)  { e.preventDefault(); captureFrame(); return; }
-      if (e.key === 't' && !inForm)   { e.preventDefault(); insertTimestamp(); return; }
-      if (e.key === 'q' && !inForm)   { e.preventDefault(); openQuoteComposer(); return; }
+      if (e.code === 'KeyT' && e.altKey && !e.ctrlKey && !e.metaKey)  { e.preventDefault(); insertTimestamp(); return; }
+      if (e.code === 'KeyS' && e.altKey && !e.ctrlKey && !e.metaKey)  { e.preventDefault(); captureFrame(); return; }
 
-      if (inForm) return;
+      if (inForm || !plainKey) return;
+
+      if (e.key === 't') { e.preventDefault(); insertTimestamp(); return; }
+      if (e.key === 'q') { e.preventDefault(); openQuoteComposer(); return; }
+      if (e.key === ' ' && onControl) return;
 
       switch (e.key) {
         case 's': e.preventDefault(); captureFrame(); break;

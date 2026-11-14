@@ -605,8 +605,8 @@ async function loadRecordingsManagement() {
         fileItem.innerHTML = `
           <span>${escHtml(file.filename)} <span style="color:var(--text-dim); font-size:0.75rem;">· ${size} MB</span></span>
           <span style="display:flex; gap:0.75rem;">
-            <a href="${file.downloadUrl}" download="${escHtml(file.filename)}" style="color:var(--accent); text-decoration:none; font-weight:600;">Download</a>
-            <a href="#" class="file-delete-btn" data-url="${file.downloadUrl}" style="color:var(--text-dim); text-decoration:none;">✕</a>
+            <a href="${escHtml(file.downloadUrl)}" download="${escHtml(file.filename)}" style="color:var(--accent); text-decoration:none; font-weight:600;">Download</a>
+            <a href="#" class="file-delete-btn" data-url="${escHtml(file.downloadUrl)}" data-name="${escHtml(file.filename)}" aria-label="Delete ${escHtml(file.filename)}" style="color:var(--text-dim); text-decoration:none;">✕</a>
           </span>
         `;
         filesDiv.appendChild(fileItem);
@@ -625,6 +625,7 @@ async function loadRecordingsManagement() {
       filesDiv.querySelectorAll(".file-delete-btn").forEach((btn) => {
         btn.addEventListener("click", async (e) => {
           e.preventDefault();
+          if (!confirm(`Delete "${btn.dataset.name}" from the server? This can't be undone.`)) return;
           await fetch(btn.dataset.url, { method: "DELETE", headers: authHeaders() });
           loadRecordingsManagement();
         });
@@ -761,6 +762,7 @@ async function attemptUnlock() {
     role = data.role;
     token = data.token;
     localStorage.setItem("podcast-studio-token", token);
+    localStorage.setItem("podcast-studio-role", role);
     document.getElementById("lock-card").style.display = "none";
     document.getElementById("settings-card").style.display = "block";
     document.getElementById("plugins-card").style.display = "block";

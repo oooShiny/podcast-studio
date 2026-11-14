@@ -577,6 +577,18 @@
   }
 
   /* ── Countdown Overlay ── */
+  /* Host tile controls: shown on hover, on keyboard focus, and always on touch screens */
+  .participant-tile .tile-mute-btn,
+  .participant-tile .tile-remove-btn { opacity: 0; transition: opacity 0.2s; }
+  .participant-tile:hover .tile-mute-btn,
+  .participant-tile:hover .tile-remove-btn,
+  .participant-tile:focus-within .tile-mute-btn,
+  .participant-tile:focus-within .tile-remove-btn { opacity: 1; }
+  @media (hover: none) {
+    .participant-tile .tile-mute-btn,
+    .participant-tile .tile-remove-btn { opacity: 1; }
+  }
+
   .countdown-overlay {
     display: none;
     position: fixed;
@@ -1485,14 +1497,14 @@
       </div>
 
       <div class="controls-bar">
-        <button class="ctrl-btn" id="settings-btn" title="Audio/Video Settings"><img class="btn-icon" src="icons/gear.webp"></button>
-        <button class="ctrl-btn" id="mic-toggle" title="Toggle Microphone"><img class="btn-icon" src="icons/mic-on.webp"></button>
-        <button class="ctrl-btn" id="cam-toggle" title="Toggle Camera"><img class="btn-icon" src="icons/video.webp"></button>
+        <button class="ctrl-btn" id="settings-btn" title="Audio/Video Settings" aria-label="Audio and video settings"><img class="btn-icon" src="icons/gear.webp" alt=""></button>
+        <button class="ctrl-btn" id="mic-toggle" title="Toggle Microphone" aria-label="Microphone" aria-pressed="true"><img class="btn-icon" src="icons/mic-on.webp" alt=""></button>
+        <button class="ctrl-btn" id="cam-toggle" title="Toggle Camera" aria-label="Camera" aria-pressed="false"><img class="btn-icon" src="icons/video.webp" alt=""></button>
         <button class="ctrl-btn record-btn" id="record-btn" title="Start Recording">REC</button>
-        <button class="ctrl-btn" id="marker-btn" title="Add Marker" style="display:none;">🚩</button>
-        <button class="ctrl-btn" id="downloads-btn" title="Downloads"><img class="btn-icon" src="icons/downloads.webp"></button>
-        <button class="ctrl-btn" id="sidebar-toggle" title="Show/Hide Sidebar"><img class="btn-icon" src="icons/sidebar.webp"></button>
-        <button class="ctrl-btn leave-btn" id="leave-btn" title="Leave">✕</button>
+        <button class="ctrl-btn" id="marker-btn" title="Add Marker" aria-label="Add marker" style="display:none;">🚩</button>
+        <button class="ctrl-btn" id="downloads-btn" title="Downloads" aria-label="Downloads"><img class="btn-icon" src="icons/downloads.webp" alt=""></button>
+        <button class="ctrl-btn" id="sidebar-toggle" title="Show/Hide Sidebar" aria-label="Show or hide sidebar"><img class="btn-icon" src="icons/sidebar.webp" alt=""></button>
+        <button class="ctrl-btn leave-btn" id="leave-btn" title="Leave" aria-label="Leave studio">✕</button>
       </div>
 
       <div class="upload-status" id="upload-status">
@@ -1590,9 +1602,9 @@
 </div>
 
 <!-- ═══════ DOWNLOADS PANEL ═══════ -->
-<div class="downloads-panel" id="downloads-panel">
+<div class="downloads-panel" id="downloads-panel" role="dialog" aria-modal="true" aria-labelledby="downloads-title">
   <div class="downloads-card">
-    <h2>Recordings</h2>
+    <h2 id="downloads-title">Recordings</h2>
     <p>Each participant's audio is recorded as a separate track.</p>
     <div id="downloads-list"></div>
     <button class="btn btn-primary downloads-close" id="downloads-close">Close</button>
@@ -1600,9 +1612,9 @@
 </div>
 
 <!-- ═══════ POST-SESSION SCREEN ═══════ -->
-<div class="downloads-panel" id="post-session-panel">
+<div class="downloads-panel" id="post-session-panel" role="dialog" aria-modal="true" aria-labelledby="post-session-title">
   <div class="downloads-card" style="max-width:500px;">
-    <h2>Session Ended</h2>
+    <h2 id="post-session-title">Session Ended</h2>
     <p>Your local recordings from this session:</p>
     <div id="post-session-list"></div>
     <button class="btn btn-primary downloads-close" id="post-session-close" style="margin-top:0.75rem;">Back to Lobby</button>
@@ -1610,9 +1622,9 @@
 </div>
 
 <!-- ═══════ SETTINGS PANEL ═══════ -->
-<div class="downloads-panel" id="settings-panel">
+<div class="downloads-panel" id="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
   <div class="downloads-card" style="max-width:440px;">
-    <h2>Audio / Video Settings</h2>
+    <h2 id="settings-title">Audio / Video Settings</h2>
     <p>Changes take effect immediately.</p>
 
     <div class="field" style="margin-top:1rem;">
@@ -2045,11 +2057,67 @@ if (savedUsername) {
   document.getElementById("username").value = savedUsername;
 }
 
+// ── Local recordings kept between sessions ──
+// IndexedDB stores Blobs directly with a quota far above localStorage's ~5 MB,
+// so real-length takes fit. Old localStorage entries are migrated once.
+const LOCAL_RECORDINGS_KEY = "podcast-studio-local-recordings";
+const LOCAL_RECORDINGS_MAX = 20;
+const localRecordings = {
+  _db: null,
+  open() {
+    if (this._db) return this._db;
+    this._db = new Promise((resolve, reject) => {
+      const req = indexedDB.open("podcast-studio-recordings", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("recordings", { keyPath: "id", autoIncrement: true });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    this._db.catch(() => { this._db = null; });
+    return this._db;
+  },
+  async _tx(mode, fn) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("recordings", mode);
+      const out = fn(tx.objectStore("recordings"));
+      tx.oncomplete = () => resolve(out && "result" in out ? out.result : undefined);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  },
+  all() { return this._tx("readonly", (s) => s.getAll()); },
+  remove(id) { return this._tx("readwrite", (s) => s.delete(id)); },
+  async add(rec) {
+    await this._tx("readwrite", (s) => s.add(rec));
+    const items = await this.all();
+    for (const old of items.slice(0, Math.max(0, items.length - LOCAL_RECORDINGS_MAX))) await this.remove(old.id);
+  },
+  async migrateLegacy() {
+    let legacy;
+    try { legacy = JSON.parse(localStorage.getItem(LOCAL_RECORDINGS_KEY) || "[]"); } catch { legacy = []; }
+    if (!Array.isArray(legacy) || legacy.length === 0) return;
+    for (const rec of legacy) {
+      if (!rec || !rec.dataUrl) continue;
+      try {
+        const blob = await (await fetch(rec.dataUrl)).blob();
+        await this.add({ name: String(rec.name || "recording"), date: String(rec.date || ""), size: blob.size, blob });
+      } catch (e) { console.warn("Could not migrate a saved recording:", e); }
+    }
+    try { localStorage.removeItem(LOCAL_RECORDINGS_KEY); } catch {}
+  },
+};
+
 // Show any locally saved recordings from previous sessions
-function showLobbyRecordings() {
-  const stored = JSON.parse(localStorage.getItem("podcast-studio-local-recordings") || "[]");
+async function showLobbyRecordings() {
   const container = document.getElementById("lobby-recordings");
   const list = document.getElementById("lobby-recordings-list");
+  let stored = [];
+  try {
+    await localRecordings.migrateLegacy();
+    stored = (await localRecordings.all()).reverse(); // newest first
+  } catch (e) {
+    console.warn("Saved recordings unavailable:", e);
+  }
 
   if (stored.length === 0) {
     container.style.display = "none";
@@ -2081,20 +2149,23 @@ function showLobbyRecordings() {
     link.addEventListener("click", (e) => {
       e.preventDefault();
       const rec = stored[parseInt(link.dataset.idx)];
-      if (rec && rec.dataUrl) {
+      if (rec && rec.blob) {
+        const url = URL.createObjectURL(rec.blob);
         const a = document.createElement("a");
-        a.href = rec.dataUrl;
+        a.href = url;
         a.download = `${rec.name}.webm`;
         a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     });
   });
 
   list.querySelectorAll(".lobby-rm-link").forEach((link) => {
-    link.addEventListener("click", (e) => {
+    link.addEventListener("click", async (e) => {
       e.preventDefault();
-      stored.splice(parseInt(link.dataset.idx), 1);
-      localStorage.setItem("podcast-studio-local-recordings", JSON.stringify(stored));
+      const rec = stored[parseInt(link.dataset.idx)];
+      if (!rec || !confirm(`Delete "${rec.name}" from this browser?`)) return;
+      try { await localRecordings.remove(rec.id); } catch (err) { console.warn(err); }
       showLobbyRecordings();
     });
   });
@@ -2210,7 +2281,7 @@ async function joinStudio() {
     state.videoTrack = state.localStream.getVideoTracks()[0] || null;
     state.camOff = false;
     const camBtn = document.getElementById("cam-toggle");
-    camBtn.innerHTML = '<img class="btn-icon" src="icons/video-on.webp">';
+    renderCamButton();
     localStorage.setItem("podcast-studio-cam", camId);
   }
 
@@ -2414,6 +2485,18 @@ function handleSignal(msg) {
   }
 }
 
+// Icon and pressed state for the mic/camera toggles, kept in one place.
+function renderMicButton() {
+  const btn = document.getElementById("mic-toggle");
+  btn.innerHTML = `<img class="btn-icon" src="icons/${state.micMuted ? "mic-off" : "mic-on"}.webp" alt="">`;
+  btn.setAttribute("aria-pressed", String(!state.micMuted));
+}
+function renderCamButton() {
+  const btn = document.getElementById("cam-toggle");
+  btn.innerHTML = `<img class="btn-icon" src="icons/${state.camOff ? "video-off" : "video-on"}.webp" alt="">`;
+  btn.setAttribute("aria-pressed", String(!state.camOff));
+}
+
 function handleRemoteMute(msg) {
   const audioTracks = state.localStream.getAudioTracks();
   state.micMuted = msg.muted;
@@ -2421,7 +2504,7 @@ function handleRemoteMute(msg) {
 
   const btn = document.getElementById("mic-toggle");
   btn.classList.toggle("muted", state.micMuted);
-  btn.textContent = state.micMuted ? "🔇" : "🎙️";
+  renderMicButton();
 
   showToast(msg.muted ? `${msg.fromUsername} muted you` : `${msg.fromUsername} unmuted you`, "info");
 }
@@ -2529,13 +2612,41 @@ async function restartIce(peerId) {
   // Relay credentials are short-lived, so pick up fresh ones before restarting.
   await loadIceServers();
   try { pc.setConfiguration({ ...pc.getConfiguration(), ...rtcConfig }); } catch (e) { console.warn("setConfiguration failed:", e); }
-  try {
-    const offer = await pc.createOffer({ iceRestart: true });
-    await pc.setLocalDescription(offer);
-    wsSend(JSON.stringify({ type: "signal", targetId: peerId, signal: { sdp: pc.localDescription } }));
-  } catch (e) {
-    console.warn("ICE restart failed:", e);
+  await sendOffer(peerId, { iceRestart: true });
+}
+
+// ── Offers ("perfect negotiation") ──
+// Either side may offer (camera on, camera switch, ICE restart), so two offers
+// can cross. The original initiator is "impolite" and ignores a colliding
+// offer; the other side is "polite": it rolls its own offer back, answers, and
+// then re-offers so its change still goes through.
+async function sendOffer(peerId, options) {
+  const peer = state.peers[peerId];
+  if (!peer || peer.pc.signalingState === "closed") return;
+  const pc = peer.pc;
+  if (pc.signalingState !== "stable") {
+    // Mid-negotiation: offer again once this round settles.
+    peer.renegotiatePending = true;
+    return;
   }
+  try {
+    peer.makingOffer = true;
+    const offer = await pc.createOffer(options);
+    if (pc.signalingState !== "stable") { peer.renegotiatePending = true; return; }
+    await pc.setLocalDescription(offer);
+    sendSignaling({ type: "signal", targetId: peerId, signal: { sdp: pc.localDescription } });
+  } catch (e) {
+    console.warn("Offer failed:", e);
+  } finally {
+    peer.makingOffer = false;
+  }
+}
+
+function flushPendingRenegotiation(peerId) {
+  const peer = state.peers[peerId];
+  if (!peer || !peer.renegotiatePending || peer.pc.signalingState !== "stable") return;
+  peer.renegotiatePending = false;
+  sendOffer(peerId);
 }
 
 function createPeer(peerId, peerUsername, initiator) {
@@ -2547,6 +2658,10 @@ function createPeer(peerId, peerUsername, initiator) {
     audioEl: null,
     stream: null,
     initiator,
+    polite: !initiator,
+    makingOffer: false,
+    ignoreOffer: false,
+    renegotiatePending: false,
     iceRestarts: 0,
     restartTimer: null,
     capTimer: null,
@@ -2610,8 +2725,10 @@ function createPeer(peerId, peerUsername, initiator) {
       }
     }
 
-    // Add/update tile with video
-    addParticipantTile(peerId, peerUsername, false, stream);
+    // Tiles are video-only (always muted); remote audio plays through audioEl,
+    // which honours the chosen speaker. Handing the tile an audio-only stream
+    // would play the voice a second time on the default device.
+    if (e.track.kind === "video") addParticipantTile(peerId, peerUsername, false, stream);
   };
 
   // ICE candidates
@@ -2642,20 +2759,12 @@ function createPeer(peerId, peerUsername, initiator) {
   // Keep the relay cap in step with the selected path and any video senders added later.
   peerData.capTimer = setInterval(() => updateRelayCap(peerData), 10000);
 
+  pc.onsignalingstatechange = () => {
+    if (pc.signalingState === "stable") flushPendingRenegotiation(peerId);
+  };
+
   // If initiator, create offer
-  if (initiator) {
-    pc.createOffer()
-      .then((offer) => pc.setLocalDescription(offer))
-      .then(() => {
-        wsSend(
-          JSON.stringify({
-            type: "signal",
-            targetId: peerId,
-            signal: { sdp: pc.localDescription },
-          })
-        );
-      });
-  }
+  if (initiator) sendOffer(peerId);
 
   addParticipantTile(peerId, peerUsername, false);
   updateGridLayout();
@@ -2679,25 +2788,33 @@ async function handlePeerSignal(fromId, signal) {
   }
 
   if (signal.sdp) {
-    await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-    if (signal.sdp.type === "offer") {
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      wsSend(
-        JSON.stringify({
-          type: "signal",
-          targetId: fromId,
-          signal: { sdp: pc.localDescription },
-        })
-      );
+    const isOffer = signal.sdp.type === "offer";
+    const collision = isOffer && (peer.makingOffer || pc.signalingState !== "stable");
+    peer.ignoreOffer = !peer.polite && collision;
+    if (peer.ignoreOffer) return; // the other side will roll back and answer ours
+    try {
+      if (collision) {
+        // Polite side: drop our own offer, answer theirs, then re-offer ours.
+        peer.renegotiatePending = true;
+        await pc.setLocalDescription({ type: "rollback" });
+      }
+      await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+      if (isOffer) {
+        await pc.setLocalDescription(await pc.createAnswer());
+        sendSignaling({ type: "signal", targetId: fromId, signal: { sdp: pc.localDescription } });
+      }
+    } catch (e) {
+      console.warn("Signal handling failed:", e);
     }
+    flushPendingRenegotiation(fromId);
   }
 
   if (signal.candidate) {
     try {
       await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
     } catch (e) {
-      console.warn("ICE candidate error:", e);
+      // Candidates for an offer we deliberately ignored are expected to fail.
+      if (!peer.ignoreOffer) console.warn("ICE candidate error:", e);
     }
   }
 }
@@ -2708,6 +2825,10 @@ function removePeer(peerId) {
 
   clearTimeout(peer.restartTimer);
   clearInterval(peer.capTimer);
+  // Release this peer's Web Audio nodes so they don't keep the stream alive.
+  try { peer._analyserSource && peer._analyserSource.disconnect(); } catch {}
+  try { peer._mixSource && peer._mixSource.disconnect(); } catch {}
+  peer._analyserSource = peer._analyser = peer._mixSource = null;
   peer.pc.close();
   if (peer.audioEl) {
     peer.audioEl.srcObject = null;
@@ -2761,12 +2882,12 @@ function addParticipantTile(peerId, username, isLocal, stream) {
 
   tile.innerHTML = `
     <div class="participant-avatar">${escHtml(initials)}</div>
-    <video autoplay playsinline ${isLocal ? "muted" : ""}></video>
+    <video autoplay playsinline muted></video>
     <div class="participant-name">
       ${escHtml(username)}${isLocal ? '<span class="you-badge">(you)</span>' : ""}
     </div>
-    ${showMuteBtn ? `<button class="tile-mute-btn" data-peer-id="${escHtml(peerId)}" title="Mute ${escHtml(username)}" style="position:absolute;top:0.5rem;right:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.7rem;cursor:pointer;opacity:0;transition:opacity 0.2s;">🎙️</button>` : ""}
-    ${showMuteBtn ? `<button class="tile-remove-btn" data-peer-id="${escHtml(peerId)}" title="Remove ${escHtml(username)}" style="position:absolute;top:0.5rem;left:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.75rem;cursor:pointer;opacity:0;transition:opacity 0.2s;">✕</button>` : ""}
+    ${showMuteBtn ? `<button class="tile-mute-btn" data-peer-id="${escHtml(peerId)}" title="Mute ${escHtml(username)}" style="position:absolute;top:0.5rem;right:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.7rem;cursor:pointer;" aria-label="Mute ${escHtml(username)}" aria-pressed="false">🎙️</button>` : ""}
+    ${showMuteBtn ? `<button class="tile-remove-btn" data-peer-id="${escHtml(peerId)}" title="Remove ${escHtml(username)}" style="position:absolute;top:0.5rem;left:0.5rem;z-index:3;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.75rem;cursor:pointer;" aria-label="Remove ${escHtml(username)}">✕</button>` : ""}
     <div class="audio-meter" id="meter-${tileId}">
       <div class="meter-bar"></div>
       <div class="meter-bar"></div>
@@ -2781,17 +2902,10 @@ function addParticipantTile(peerId, username, isLocal, stream) {
     const muteBtn = tile.querySelector(".tile-mute-btn");
     const removeBtn = tile.querySelector(".tile-remove-btn");
     let peerMuted = false;
-    tile.addEventListener("mouseenter", () => {
-      muteBtn.style.opacity = "1";
-      removeBtn.style.opacity = "1";
-    });
-    tile.addEventListener("mouseleave", () => {
-      muteBtn.style.opacity = "0";
-      removeBtn.style.opacity = "0";
-    });
     muteBtn.addEventListener("click", () => {
       peerMuted = !peerMuted;
       muteBtn.textContent = peerMuted ? "🔇" : "🎙️";
+      muteBtn.setAttribute("aria-pressed", String(peerMuted));
       muteBtn.style.background = peerMuted ? "var(--accent)" : "var(--surface-2)";
       wsSend(JSON.stringify({
         type: "remote-mute",
@@ -2858,17 +2972,25 @@ function setupAudioAnalysis() {
   state.analyserLocal.fftSize = 256;
   micSource.connect(state.analyserLocal);
 
-  animateMeters();
+  // One meter loop for the page's lifetime; a mic switch must not start another.
+  if (!state.meterLoopRunning) {
+    state.meterLoopRunning = true;
+    animateMeters();
+  }
 }
 
 function setupRemoteAudioAnalysis(peerId, stream) {
   if (!state.audioContext) return;
   if (!stream || stream.getAudioTracks().length === 0) return;
+  const peer = state.peers[peerId];
+  if (!peer) return;
+  if (peer._analyserSource) peer._analyserSource.disconnect();
   const source = state.audioContext.createMediaStreamSource(stream);
   const analyser = state.audioContext.createAnalyser();
   analyser.fftSize = 256;
   source.connect(analyser);
-  state.peers[peerId]._analyser = analyser;
+  peer._analyserSource = source;
+  peer._analyser = analyser;
 }
 
 function animateMeters() {
@@ -2945,7 +3067,14 @@ function playSyncTone(durationMs = 500, freqHz = 1000) {
 // ═══════════════════════════════════════════════
 //  CHUNKED UPLOAD QUEUE
 // ═══════════════════════════════════════════════
+// Demo and free deployments discard uploads server-side, so don't send them
+// (or claim a server backup exists): the take lives only in this browser.
+function localOnlyRecording() {
+  return !!(state.demoMode || state.freeMode);
+}
+
 function enqueueChunk(blob, meta) {
+  if (localOnlyRecording()) return;
   state.uploadQueue.push({ blob, meta, retries: 0 });
   processUploadQueue();
 }
@@ -3025,6 +3154,7 @@ async function waitForUploads(sessionId, trackType, maxWaitMs = 10 * 60 * 1000) 
 // take = { sessionId, participantId } captured when the take started, so a
 // reconnect (new id) or a new take can't redirect this one's finalize.
 async function finalizeUpload(trackType, take) {
+  if (localOnlyRecording()) return null;
   // Finalizing concatenates whatever chunks the server has, so every chunk
   // must have landed first or the tail of the take is missing from the file.
   await waitForUploads(take.sessionId, trackType);
@@ -3097,6 +3227,8 @@ document.getElementById("record-btn").addEventListener("click", () => {
       showToast("Only the host can start recording", "info");
       return;
     }
+    // Ignore clicks while a countdown runs or the last take is still stopping.
+    if (state.countingDown || state.stopping) return;
     const sessionId = crypto.randomUUID();
     const sent = wsSend(JSON.stringify({
       type: "recording-control",
@@ -3151,6 +3283,9 @@ function fmtMarkerTime(sec) {
 function handleRecordingControl(msg) {
   switch (msg.action) {
     case "countdown":
+      // A second countdown during one already running (or mid-take) must not
+      // swap the session id out from under it.
+      if (state.countingDown || state.isRecording) break;
       state.sessionId = msg.sessionId;
       runCountdown();
       break;
@@ -3164,20 +3299,25 @@ function handleRecordingControl(msg) {
 }
 
 async function runCountdown() {
+  if (state.countingDown || state.isRecording) return;
+  state.countingDown = true;
   const overlay = document.getElementById("countdown-overlay");
   const numberEl = document.getElementById("countdown-number");
   overlay.classList.add("active");
 
-  for (let i = 3; i >= 1; i--) {
-    numberEl.textContent = i;
-    numberEl.style.animation = "none";
-    numberEl.offsetHeight;
-    numberEl.style.animation = "countdown-pop 0.5s ease-out";
-    playSyncTone(80, 800);
-    await sleep(1000);
+  try {
+    for (let i = 3; i >= 1; i--) {
+      numberEl.textContent = i;
+      numberEl.style.animation = "none";
+      numberEl.offsetHeight;
+      numberEl.style.animation = "countdown-pop 0.5s ease-out";
+      playSyncTone(80, 800);
+      await sleep(1000);
+    }
+  } finally {
+    overlay.classList.remove("active");
+    state.countingDown = false;
   }
-
-  overlay.classList.remove("active");
 
   if (state.isHost) {
     wsSend(JSON.stringify({
@@ -3340,7 +3480,9 @@ function actuallyStartRecording() {
   updateUploadStatus();
 
   startTimer();
-  showToast("Recording — uploading to server", "success");
+  showToast(localOnlyRecording()
+    ? "Recording — saved in this browser only. Download it when you stop."
+    : "Recording — uploading to server", "success");
 }
 
 // Returns a promise that settles once both recorders have delivered their
@@ -3422,7 +3564,7 @@ document.getElementById("mic-toggle").addEventListener("click", () => {
 
   const btn = document.getElementById("mic-toggle");
   btn.classList.toggle("muted", state.micMuted);
-  btn.innerHTML = state.micMuted ? '<img class="btn-icon" src="icons/mic-off.webp">' : '<img class="btn-icon" src="icons/mic-on.webp">';
+  renderMicButton();
 });
 
 document.getElementById("cam-toggle").addEventListener("click", async () => {
@@ -3438,13 +3580,7 @@ document.getElementById("cam-toggle").addEventListener("click", async () => {
       // Add video track to all peer connections and renegotiate so remote peers receive it
       for (const [peerId, peer] of Object.entries(state.peers)) {
         peer.pc.addTrack(state.videoTrack, state.localStream);
-        const offer = await peer.pc.createOffer();
-        await peer.pc.setLocalDescription(offer);
-        wsSend(JSON.stringify({
-          type: "signal",
-          targetId: peerId,
-          signal: { sdp: peer.pc.localDescription },
-        }));
+        await sendOffer(peerId);
       }
 
       state.camOff = false;
@@ -3472,7 +3608,7 @@ document.getElementById("cam-toggle").addEventListener("click", async () => {
 
   const btn = document.getElementById("cam-toggle");
   btn.classList.toggle("muted", state.camOff);
-    btn.innerHTML = state.camOff ? '<img class="btn-icon" src="icons/video-off.webp">' : '<img class="btn-icon" src="icons/video-on.webp">';
+  renderCamButton();
 });
 
 // Downloads
@@ -3610,11 +3746,14 @@ async function leaveStudio({ notifyHost }) {
     if (notifyHost && state.isHost) sendSignaling({ type: "host-left" });
     closeSignaling();
     signalingReconnects = 0;
+    // The local tile holds the now-stopped stream; a rejoin builds a fresh one.
+    const localTile = document.getElementById("tile-local");
+    if (localTile) localTile.remove();
 
-    // Save recordings to localStorage for returning user access
+    // Keep recordings in this browser so they show up under Previous Recordings
     if (state.recordings.length > 0) {
-      saveRecordingsToLocal();
       showPostSession();
+      await saveRecordingsToLocal();
     } else {
       // Back to lobby
       document.getElementById("studio").classList.remove("active");
@@ -3626,32 +3765,19 @@ async function leaveStudio({ notifyHost }) {
   }
 }
 
-function saveRecordingsToLocal() {
-  const stored = JSON.parse(localStorage.getItem("podcast-studio-local-recordings") || "[]");
-
-  state.recordings.forEach((rec) => {
-    // Convert blob to data URL for localStorage persistence
-    const reader = new FileReader();
-    reader.onload = () => {
-      stored.push({
-        name: rec.name,
-        date: new Date().toLocaleDateString(),
-        size: rec.blob.size,
-        dataUrl: reader.result,
-      });
-      // Keep only last 20 recordings to avoid localStorage overflow
-      while (stored.length > 20) stored.shift();
-      // localStorage holds ~5 MB, so anything beyond a short take won't fit.
-      // That must not throw: the download list on screen still has the blob.
-      try {
-        localStorage.setItem("podcast-studio-local-recordings", JSON.stringify(stored));
-      } catch {
-        stored.pop();
-        console.warn(`"${rec.name}" is too large to keep in browser storage — download it before closing this tab`);
-      }
-    };
-    reader.readAsDataURL(rec.blob);
-  });
+async function saveRecordingsToLocal() {
+  const date = new Date().toLocaleDateString();
+  for (const rec of state.recordings) {
+    if (rec.savedLocally) continue;
+    try {
+      await localRecordings.add({ name: rec.name, date, size: rec.blob.size, blob: rec.blob });
+      rec.savedLocally = true;
+    } catch (e) {
+      // Quota or private-window failure: the on-screen download list still has the blob.
+      console.warn(`Could not keep "${rec.name}" in browser storage — download it before closing this tab`, e);
+      showToast(`"${rec.name}" could not be saved in this browser — download it now`, "error");
+    }
+  }
 }
 
 function showPostSession() {
@@ -3718,6 +3844,46 @@ document.getElementById("settings-btn").addEventListener("click", () => {
 document.getElementById("settings-close").addEventListener("click", () => {
   document.getElementById("settings-panel").classList.remove("active");
 });
+
+// ── Dialog behaviour for the overlay panels ──
+// Opening moves focus inside, Tab stays inside, Escape closes (via the
+// panel's own close button so its handler runs) and focus goes back to
+// whatever opened it.
+(function setupDialogPanels() {
+  const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  const closeButtons = { "downloads-panel": "downloads-close", "post-session-panel": "post-session-close", "settings-panel": "settings-close" };
+  const openerFor = new Map();
+  const visibleFocusables = (panel) => [...panel.querySelectorAll(FOCUSABLE)].filter((el) => el.offsetParent !== null);
+
+  for (const [panelId, closeId] of Object.entries(closeButtons)) {
+    const panel = document.getElementById(panelId);
+    if (!panel) continue;
+    new MutationObserver(() => {
+      const open = panel.classList.contains("active");
+      if (open && !openerFor.has(panel)) {
+        openerFor.set(panel, document.activeElement);
+        requestAnimationFrame(() => (visibleFocusables(panel)[0] || panel).focus());
+      } else if (!open && openerFor.has(panel)) {
+        const opener = openerFor.get(panel);
+        openerFor.delete(panel);
+        if (opener && document.contains(opener) && typeof opener.focus === "function") opener.focus();
+      }
+    }).observe(panel, { attributes: true, attributeFilter: ["class"] });
+
+    panel.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        document.getElementById(closeId)?.click();
+      } else if (e.key === "Tab") {
+        const items = visibleFocusables(panel);
+        if (items.length === 0) return;
+        const first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+  }
+})();
 
 // Set audio output on all audio/video elements
 function setAudioOutput(deviceId) {
@@ -3862,13 +4028,7 @@ document.getElementById("studio-cam-select").addEventListener("change", async (e
       } else {
         // No existing video sender — addTrack requires renegotiation for remote to receive it
         peer.pc.addTrack(newVideoTrack, state.localStream);
-        const offer = await peer.pc.createOffer();
-        await peer.pc.setLocalDescription(offer);
-        wsSend(JSON.stringify({
-          type: "signal",
-          targetId: peerId,
-          signal: { sdp: peer.pc.localDescription },
-        }));
+        await sendOffer(peerId);
       }
     }
 
@@ -4224,11 +4384,14 @@ function renderClipList() {
 
     let actionBtn;
     if (isHost) {
-      actionBtn = `<button class="clip-play-btn" data-idx="${i}">${clip.playing ? "■" : "▶"}</button>`;
+      actionBtn = `<button class="clip-play-btn" data-idx="${i}" aria-label="${clip.playing ? "Stop" : "Play"} ${escHtml(clip.name)}">${clip.playing ? "■" : "▶"}</button>`;
+    } else if (state.freeMode) {
+      // Free rooms don't relay clips to the host (and cap message size).
+      actionBtn = `<button class="clip-queue-btn" disabled title="Sending clips to the host isn't available in free rooms" aria-label="Sending clips isn't available in free rooms">↑</button>`;
     } else if (clip.queued) {
-      actionBtn = `<button class="clip-queue-btn" data-idx="${i}" disabled title="Queued for host">✓</button>`;
+      actionBtn = `<button class="clip-queue-btn" data-idx="${i}" disabled title="Queued for host" aria-label="Queued for host">✓</button>`;
     } else {
-      actionBtn = `<button class="clip-queue-btn" data-idx="${i}" title="Send to host queue">↑</button>`;
+      actionBtn = `<button class="clip-queue-btn" data-idx="${i}" title="Send to host queue" aria-label="Send ${escHtml(clip.name)} to the host">↑</button>`;
     }
 
     const queuedBadge = (!isHost && clip.queued)
@@ -4245,8 +4408,8 @@ function renderClipList() {
         </div>
         <div class="clip-progress"><div class="clip-progress-fill" id="clip-prog-${i}"></div></div>
       </div>
-      <input type="range" class="clip-volume" min="0" max="100" value="${clip.volume * 100}" data-idx="${i}" title="Volume" />
-      <button class="clip-remove-btn" data-idx="${i}">✕</button>
+      <input type="range" class="clip-volume" min="0" max="100" value="${clip.volume * 100}" data-idx="${i}" title="Volume" aria-label="Volume for ${escHtml(clip.name)}" />
+      <button class="clip-remove-btn" data-idx="${i}" aria-label="Remove ${escHtml(clip.name)}">✕</button>
     `;
     list.appendChild(item);
   });
@@ -4347,6 +4510,10 @@ function stopClip(idx) {
 
 function shareClipWithHost(idx) {
   const clip = clips[idx];
+  if (state.freeMode) {
+    showToast("Sending clips to the host isn't available in free rooms", "info");
+    return;
+  }
   if (!clip.rawBuffer) {
     showToast("Cannot share this clip (no source data)", "error");
     return;
