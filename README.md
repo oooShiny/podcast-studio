@@ -381,3 +381,12 @@ ffmpeg -i recording.webm -ar 44100 recording.wav
 # Batch convert all files in a directory
 for f in *.webm; do ffmpeg -i "$f" -ar 44100 "${f%.webm}.wav"; done
 ```
+
+## License
+
+Podcast Studio is free software, licensed under the
+[GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
+
+You can use, modify, and self-host it for any purpose. If you run a modified version
+as a network service that other people use, the AGPL requires you to offer those users
+the source code of your modified version under the same license.
