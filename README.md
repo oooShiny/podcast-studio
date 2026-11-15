@@ -207,6 +207,9 @@ Before exposing a demo publicly:
 
 `DEMO_MODE` is entirely opt-in and changes no behavior for a normal self-hosted instance.
 
+`deploy/fly.demo.toml` is a ready-made Fly.io config for a demo instance (no volume,
+stops when idle).
+
 ## Free Studio Mode
 
 `FREE_MODE=1` runs a public, studio-only instance. There are no shared passwords: a
@@ -219,6 +222,8 @@ room, so a token from one room can't be used in another.
 - Rooms are capped (`FREE_MAX_PARTICIPANTS`, default 5) and expire when empty for
   `FREE_ROOM_IDLE_MINUTES`; rate limiting and same-origin CORS are on, as in `DEMO_MODE`.
 - Run it as its own deployment, separate from any demo or private instance.
+- `deploy/fly.free.toml` is a ready-made Fly.io config. Keep the machine running:
+  rooms live in memory, so a stop or restart ends every open room.
 
 ## TURN Relay (optional)
 
@@ -381,3 +386,12 @@ ffmpeg -i recording.webm -ar 44100 recording.wav
 # Batch convert all files in a directory
 for f in *.webm; do ffmpeg -i "$f" -ar 44100 "${f%.webm}.wav"; done
 ```
+
+## License
+
+Podcast Studio is free software, licensed under the
+[GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
+
+You can use, modify, and self-host it for any purpose. If you run a modified version
+as a network service that other people use, the AGPL requires you to offer those users
+the source code of your modified version under the same license.
