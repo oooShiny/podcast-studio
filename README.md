@@ -207,6 +207,9 @@ Before exposing a demo publicly:
 
 `DEMO_MODE` is entirely opt-in and changes no behavior for a normal self-hosted instance.
 
+`deploy/fly.demo.toml` is a ready-made Fly.io config for a demo instance (no volume,
+stops when idle).
+
 ## Free Studio Mode
 
 `FREE_MODE=1` runs a public, studio-only instance. There are no shared passwords: a
@@ -219,6 +222,8 @@ room, so a token from one room can't be used in another.
 - Rooms are capped (`FREE_MAX_PARTICIPANTS`, default 5) and expire when empty for
   `FREE_ROOM_IDLE_MINUTES`; rate limiting and same-origin CORS are on, as in `DEMO_MODE`.
 - Run it as its own deployment, separate from any demo or private instance.
+- `deploy/fly.free.toml` is a ready-made Fly.io config. Keep the machine running:
+  rooms live in memory, so a stop or restart ends every open room.
 
 ## TURN Relay (optional)
 

@@ -1,0 +1,37 @@
+# Public, studio-only free instance. Anyone can create a room; access is a
+# room-scoped token, recordings stay in the browser, and prep/editor/settings/
+# plugins are off. See "Free Studio Mode" in the README.
+#
+# Rooms live in memory, so this machine must stay running: stopping it ends
+# every open room and invalidates every host and guest link.
+#
+# TURN is deliberately not configured here (relay bandwidth is the one cost
+# that grows with use). Set TURN_KEY_ID / TURN_KEY_API_TOKEN as secrets to
+# turn it on.
+#
+#   fly deploy -c deploy/fly.free.toml --image ghcr.io/oooshiny/podcast-studio:<sha>
+app = "doyourpod-free"
+primary_region = "iad"
+
+[env]
+  FREE_MODE = "1"
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
