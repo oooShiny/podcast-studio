@@ -3,7 +3,7 @@
 #  Podcast Studio — Deployment Script
 #  Target: Ubuntu VPS (22.04 or 24.04)
 #  Domain: studio.example.com
-#  Stack: Node.js 20 + PM2 + Caddy
+#  Stack: Node.js 24 + PM2 + Caddy
 # ═══════════════════════════════════════════════════════════
 #
 #  BEFORE RUNNING THIS SCRIPT:
@@ -28,7 +28,7 @@ DOMAIN="studio.example.com"
 REPO="git@github.com:oooShiny/podcast-studio.git"
 APP_DIR="/opt/podcast-studio"
 APP_USER="podstudio"
-NODE_VERSION="20"
+NODE_VERSION="24"
 APP_PORT="3000"
 
 # Generate a random webhook secret if one isn't already set in the environment
@@ -54,7 +54,7 @@ else
   echo "→ User ${APP_USER} already exists"
 fi
 
-# ── Step 3: Install Node.js 20 ──
+# ── Step 3: Install Node.js 24 ──
 if ! command -v node &>/dev/null || [[ "$(node -v)" != v${NODE_VERSION}* ]]; then
   echo "→ Installing Node.js ${NODE_VERSION}…"
   curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
