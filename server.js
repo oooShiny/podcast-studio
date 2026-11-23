@@ -367,7 +367,9 @@ if (DEMO_MODE) {
   console.log(`[demo] DEMO_MODE active — wiping demo data every ${DEMO_WIPE_INTERVAL_MINUTES} min`);
 }
 
-server.listen(PORT, () => {
+// HOST unset listens on all interfaces (needed for Docker/Fly). Behind a local
+// reverse proxy, set HOST=127.0.0.1 so the app is never reachable directly.
+server.listen(PORT, process.env.HOST || undefined, () => {
   console.log(`Podcast Studio server running on http://localhost:${PORT}`);
   console.log(`Recordings saved to: ${dirs.RECORDINGS_DIR}`);
 });
